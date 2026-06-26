@@ -1,0 +1,432 @@
+/* ==========================================================================
+   OrderVora Customer App — storefront styles.
+
+   Mobile-first, ordered one-handed on the street. Warm "deli counter" palette,
+   appetite-forward, with a brass accent. Tenant-rebrandable: --brand and
+   --brand-ink are overridden per restaurant from restaurants.brand_colors.
+   The signature element is the sticky bottom cart rail.
+   ========================================================================== */
+
+.ov {
+  --ink: #1a1714;
+  --muted: #6f655c;
+  --paper: #fbf8f3;
+  --card: #ffffff;
+  --line: #ece4d8;
+  --brand: #c8842e;        /* deli brass — tenant override */
+  --brand-ink: #ffffff;    /* text on brand — tenant override */
+  --fresh: #3e7d54;
+  --danger: #b3402f;
+  --radius: 14px;
+
+  color: var(--ink);
+  background: var(--paper);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+.ov * { box-sizing: border-box; }
+
+.ov-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 96px; /* room for the cart rail */
+}
+
+/* ---- hero / landing --------------------------------------------------- */
+.ov-hero {
+  position: relative;
+  padding: 28px 20px 22px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.ov-hero-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.ov-hero h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.ov-hero-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ov-hero-meta b { color: var(--fresh); font-weight: 700; }
+
+/* fulfillment toggle */
+.ov-fulfillment {
+  display: inline-flex;
+  margin-top: 16px;
+  padding: 3px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.ov-seg {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ov-seg[data-active='true'] {
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
+/* ---- category nav (sticky) -------------------------------------------- */
+.ov-catnav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+.ov-catnav::-webkit-scrollbar { display: none; }
+
+.ov-chip {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ov-chip[data-active='true'] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---- menu ------------------------------------------------------------- */
+.ov-section { padding: 22px 16px 6px; }
+.ov-section h2 {
+  margin: 0 0 2px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.ov-section p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+
+.ov-products { display: flex; flex-direction: column; gap: 10px; }
+
+.ov-product {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.05s ease;
+}
+.ov-product:active { transform: scale(0.995); }
+.ov-product:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.ov-product[data-out='true'] { opacity: 0.55; }
+
+.ov-product-body { flex: 1; min-width: 0; }
+.ov-product-name { font-size: 16px; font-weight: 700; line-height: 1.25; }
+.ov-product-desc {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ov-product-foot { margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+.ov-price { font-size: 15px; font-weight: 800; }
+.ov-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.ov-out-badge { color: var(--danger); font-size: 12px; font-weight: 700; }
+
+.ov-thumb {
+  width: 84px;
+  height: 84px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+/* ---- bottom sheet (modal) --------------------------------------------- */
+.ov-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 12, 0.5);
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ov-sheet {
+  width: 100%;
+  max-width: 720px;
+  max-height: 92dvh;
+  background: var(--paper);
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: ov-rise 0.18s ease-out;
+}
+@keyframes ov-rise { from { transform: translateY(16px); } to { transform: translateY(0); } }
+
+.ov-sheet-img { width: 100%; height: 200px; object-fit: cover; background: var(--line); }
+.ov-sheet-scroll { overflow-y: auto; padding: 18px 18px 12px; }
+.ov-sheet-title { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+.ov-sheet-desc { margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.ov-sheet-nutri { margin-top: 8px; font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
+
+.ov-modgroup { margin-top: 20px; }
+.ov-modgroup-head { display: flex; align-items: baseline; justify-content: space-between; }
+.ov-modgroup-name { font-size: 15px; font-weight: 800; }
+.ov-modgroup-rule { font-size: 12px; color: var(--muted); }
+.ov-modgroup-req {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--danger); margin-left: 8px;
+}
+
+.ov-option {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.ov-option:last-child { border-bottom: none; }
+.ov-option-box {
+  width: 22px; height: 22px; flex: none;
+  border: 2px solid var(--line); border-radius: 6px;
+  display: grid; place-items: center;
+}
+.ov-option[data-radio='true'] .ov-option-box { border-radius: 50%; }
+.ov-option[data-checked='true'] .ov-option-box { border-color: var(--brand); background: var(--brand); }
+.ov-option-tick { width: 10px; height: 10px; border-radius: 2px; background: var(--brand-ink); }
+.ov-option[data-radio='true'] .ov-option-tick { border-radius: 50%; }
+.ov-option-name { flex: 1; font-size: 15px; font-weight: 600; }
+.ov-option-price { font-size: 14px; color: var(--muted); font-weight: 700; }
+
+.ov-sheet-foot {
+  border-top: 1px solid var(--line);
+  background: var(--card);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.ov-qty {
+  display: flex; align-items: center; gap: 2px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--paper);
+}
+.ov-qty button {
+  width: 38px; height: 38px; border: none; background: transparent;
+  font-size: 20px; font-weight: 700; color: var(--ink); cursor: pointer;
+}
+.ov-qty span { min-width: 28px; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---- primary buttons -------------------------------------------------- */
+.ov-btn {
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 14px 18px;
+  cursor: pointer;
+  background: var(--brand);
+  color: var(--brand-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ov-btn[data-block='true'] { width: 100%; }
+.ov-btn:disabled { opacity: 0.55; cursor: default; }
+.ov-btn[data-variant='ghost'] { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.ov-btn[data-variant='ink'] { background: var(--ink); color: var(--paper); }
+.ov-btn-grow { flex: 1; }
+
+/* ---- cart rail (signature) -------------------------------------------- */
+.ov-rail {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.ov-rail-inner {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 688px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 28px rgba(20, 16, 12, 0.28);
+}
+.ov-rail-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; padding: 0 8px;
+  background: var(--brand); color: var(--brand-ink);
+  border-radius: 999px; font-weight: 800; font-size: 13px;
+}
+.ov-rail-label { font-weight: 700; font-size: 14px; }
+.ov-rail-total { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+/* ---- generic page scaffolding ----------------------------------------- */
+.ov-topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5;
+}
+.ov-back {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.ov-topbar h1 { margin: 0; font-size: 17px; font-weight: 800; }
+
+.ov-pad { padding: 18px 16px; }
+.ov-stack { display: flex; flex-direction: column; gap: 12px; }
+
+.ov-field { display: flex; flex-direction: column; gap: 6px; }
+.ov-field label { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.ov-input, .ov-textarea, .ov-select {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px; font-size: 15px; background: var(--card); color: var(--ink);
+  font-family: inherit;
+}
+.ov-textarea { resize: vertical; min-height: 70px; }
+
+.ov-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px;
+}
+
+.ov-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ov-row + .ov-row { margin-top: 10px; }
+.ov-row-label { color: var(--muted); font-size: 14px; }
+.ov-row-value { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ov-row[data-total='true'] .ov-row-label,
+.ov-row[data-total='true'] .ov-row-value { font-size: 17px; font-weight: 800; color: var(--ink); }
+
+.ov-divider { height: 1px; background: var(--line); margin: 14px 0; }
+
+.ov-tips { display: flex; gap: 8px; }
+.ov-tip {
+  flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); font-weight: 700; font-size: 14px; cursor: pointer; color: var(--ink);
+}
+.ov-tip[data-active='true'] { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+
+.ov-coupon { display: flex; gap: 8px; }
+.ov-coupon .ov-input { flex: 1; }
+
+.ov-note { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.ov-error {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger); border-radius: 10px; padding: 10px 12px;
+  font-size: 13px; font-weight: 600;
+}
+.ov-success {
+  background: color-mix(in srgb, var(--fresh) 12%, transparent);
+  color: var(--fresh); border-radius: 10px; padding: 10px 12px;
+  font-size: 13px; font-weight: 600;
+}
+
+/* ---- loyalty / account ------------------------------------------------ */
+.ov-loyalty {
+  background: linear-gradient(135deg, var(--ink), color-mix(in srgb, var(--brand) 40%, var(--ink)));
+  color: var(--paper); border-radius: var(--radius); padding: 18px;
+}
+.ov-loyalty-points { font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.ov-loyalty-tier { margin-top: 6px; font-size: 13px; opacity: 0.85; font-weight: 700; }
+.ov-progress { margin-top: 12px; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.18); overflow: hidden; }
+.ov-progress span { display: block; height: 100%; background: var(--brand); }
+
+/* ---- order list / tracker --------------------------------------------- */
+.ov-order { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.ov-order-head { display: flex; align-items: center; justify-content: space-between; }
+.ov-order-num { font-weight: 800; font-size: 15px; }
+.ov-order-when { font-size: 12px; color: var(--muted); }
+.ov-state {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px;
+}
+.ov-state[data-tone='active'] { color: var(--brand); background: color-mix(in srgb, var(--brand) 14%, transparent); }
+.ov-state[data-tone='done'] { color: var(--fresh); background: color-mix(in srgb, var(--fresh) 14%, transparent); }
+.ov-state[data-tone='dead'] { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
+
+.ov-track-steps { display: flex; flex-direction: column; gap: 0; margin-top: 8px; }
+.ov-step { display: flex; gap: 14px; padding: 4px 0; }
+.ov-step-rail { display: flex; flex-direction: column; align-items: center; }
+.ov-step-dot {
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); background: var(--card);
+  flex: none;
+}
+.ov-step[data-done='true'] .ov-step-dot { background: var(--fresh); border-color: var(--fresh); }
+.ov-step[data-current='true'] .ov-step-dot { border-color: var(--brand); background: var(--brand); }
+.ov-step-line { width: 2px; flex: 1; background: var(--line); min-height: 22px; }
+.ov-step[data-done='true'] .ov-step-line { background: var(--fresh); }
+.ov-step-body { padding-bottom: 16px; }
+.ov-step-name { font-weight: 700; font-size: 15px; }
+.ov-step[data-pending='true'] .ov-step-name { color: var(--muted); }
+.ov-step-time { font-size: 12px; color: var(--muted); }
+
+.ov-empty { text-align: center; color: var(--muted); padding: 48px 16px; font-size: 14px; }
+
+.ov-link { color: var(--brand); font-weight: 700; text-decoration: none; cursor: pointer; background: none; border: none; font-size: inherit; padding: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ov-sheet { animation: none; }
+}

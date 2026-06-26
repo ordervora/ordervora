@@ -1,0 +1,45 @@
+### Supabase project configuration (local development).
+### Managed by the Supabase CLI. See https://supabase.com/docs/guides/cli.
+
+project_id = "ordervora"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+# Local dev site URL; override per environment.
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+# OAuth providers are configured per-environment via the dashboard or env.
+[auth.external.google]
+enabled = false
+
+[storage]
+enabled = true

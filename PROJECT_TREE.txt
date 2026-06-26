@@ -1,0 +1,189 @@
+ordervora/
+├── app/
+│   ├── [slug]/
+│   │   ├── account/
+│   │   │   ├── addresses/
+│   │   │   │   └── page.tsx
+│   │   │   ├── orders/
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── checkout/
+│   │   │   └── page.tsx
+│   │   ├── track/
+│   │   │   └── [orderId]/
+│   │   │       └── page.tsx
+│   │   ├── customer.css
+│   │   ├── layout.tsx
+│   │   ├── not-found.tsx
+│   │   └── page.tsx
+│   ├── auth/
+│   │   ├── callback/
+│   │   │   └── route.ts
+│   │   ├── sign-in/
+│   │   │   └── page.tsx
+│   │   ├── sign-out/
+│   │   │   └── route.ts
+│   │   └── actions.ts
+│   ├── dashboard/
+│   │   ├── analytics/
+│   │   │   └── page.tsx
+│   │   ├── coupons/
+│   │   │   └── page.tsx
+│   │   ├── customers/
+│   │   │   └── page.tsx
+│   │   ├── menu/
+│   │   │   └── page.tsx
+│   │   ├── orders/
+│   │   │   └── page.tsx
+│   │   ├── reviews/
+│   │   │   └── page.tsx
+│   │   ├── settings/
+│   │   │   └── page.tsx
+│   │   ├── staff/
+│   │   │   └── page.tsx
+│   │   ├── dashboard.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── kds/
+│   │   ├── kds.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+│   ├── customer/
+│   │   ├── AccountClient.tsx
+│   │   ├── AddressesClient.tsx
+│   │   ├── AuthPanel.tsx
+│   │   ├── CartRail.tsx
+│   │   ├── CheckoutClient.tsx
+│   │   ├── OrderHistoryClient.tsx
+│   │   ├── OrderTracker.tsx
+│   │   ├── PaymentForm.tsx
+│   │   ├── ProductModal.tsx
+│   │   └── Storefront.tsx
+│   ├── dashboard/
+│   │   ├── AnalyticsManager.tsx
+│   │   ├── CouponsManager.tsx
+│   │   ├── CustomersManager.tsx
+│   │   ├── DashboardOverview.tsx
+│   │   ├── MenuManager.tsx
+│   │   ├── OrdersManager.tsx
+│   │   ├── ReviewsManager.tsx
+│   │   ├── SettingsManager.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── StaffManager.tsx
+│   └── kds/
+│       ├── KdsBoard.tsx
+│       ├── SettingsPanel.tsx
+│       ├── StartShiftOverlay.tsx
+│       ├── StationColumn.tsx
+│       └── TicketCard.tsx
+├── config/
+│   ├── constants.ts
+│   ├── env.example
+│   └── env.ts
+├── hooks/
+│   ├── useAuth.ts
+│   ├── useCustomer.ts
+│   ├── useKdsBoard.ts
+│   ├── useKdsPreferences.ts
+│   ├── useOrderActions.ts
+│   ├── useOrderTracker.ts
+│   ├── usePermissions.ts
+│   ├── useRealtimeOrders.ts
+│   ├── useRestaurant.ts
+│   └── useTicker.ts
+├── lib/
+│   ├── cart/
+│   │   ├── CartProvider.tsx
+│   │   ├── brand.ts
+│   │   ├── checkout-client.ts
+│   │   ├── pricing.ts
+│   │   └── types.ts
+│   ├── dashboard/
+│   │   ├── actions.ts
+│   │   ├── context.tsx
+│   │   └── utils.ts
+│   ├── rbac/
+│   │   ├── auth-context.ts
+│   │   ├── index.ts
+│   │   └── permissions.ts
+│   ├── realtime/
+│   │   ├── _shared.ts
+│   │   ├── index.ts
+│   │   ├── notifications.ts
+│   │   ├── orders.ts
+│   │   └── tracker.ts
+│   ├── services/
+│   │   ├── _shared.ts
+│   │   ├── coupon.service.ts
+│   │   ├── customer.service.ts
+│   │   ├── financials.service.ts
+│   │   ├── index.ts
+│   │   ├── kds.service.ts
+│   │   ├── loyalty.service.ts
+│   │   ├── menu.service.ts
+│   │   ├── order.service.ts
+│   │   ├── reports.service.ts
+│   │   ├── restaurant.service.ts
+│   │   ├── review.service.ts
+│   │   └── staff.service.ts
+│   ├── sound/
+│   │   └── index.ts
+│   ├── supabase/
+│   │   ├── client.ts
+│   │   ├── index.ts
+│   │   ├── middleware.ts
+│   │   ├── server.ts
+│   │   └── service.ts
+│   └── utils/
+│       └── time.ts
+├── supabase/
+│   ├── functions/
+│   │   ├── _shared/
+│   │   │   ├── auth.ts
+│   │   │   ├── coupon.ts
+│   │   │   ├── http.ts
+│   │   │   ├── pricing.ts
+│   │   │   ├── stripe.ts
+│   │   │   ├── supabase.ts
+│   │   │   └── types.ts
+│   │   ├── advance-order/
+│   │   │   └── index.ts
+│   │   ├── checkout/
+│   │   │   └── index.ts
+│   │   ├── refund-order/
+│   │   │   └── index.ts
+│   │   ├── stripe-webhook/
+│   │   │   └── index.ts
+│   │   ├── validate-coupon/
+│   │   │   └── index.ts
+│   │   └── deno.json
+│   ├── migrations/
+│   │   ├── 0001_initial_schema.sql
+│   │   └── 0002_checkout_rpc.sql
+│   ├── seed/
+│   │   ├── 01_restaurant.ts
+│   │   ├── 02_staff.ts
+│   │   ├── 03_menu.ts
+│   │   ├── 04_customers.ts
+│   │   ├── 05_coupons.ts
+│   │   ├── 06_orders.ts
+│   │   ├── 07_reviews.ts
+│   │   ├── README.md
+│   │   ├── _shared.ts
+│   │   └── index.ts
+│   └── config.toml
+├── types/
+│   └── database.types.ts
+├── .gitignore
+├── BUILD_VERIFICATION.md
+├── PRODUCTION_READINESS.md
+├── PROJECT_TREE.txt
+├── README.md
+├── middleware.ts
+├── next.config.ts
+├── package.json
+└── tsconfig.json
