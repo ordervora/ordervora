@@ -16,17 +16,15 @@ import type { Database } from '@/types/database.types';
 /**
 * A Supabase client typed against our schema.
 *
-* Pinned to the fully-resolved three-argument form --
-* `SupabaseClient<Database, 'public', Database['public']>` -- which is exactly
-* what `createServerClient`, `createBrowserClient` (@supabase/ssr) and
-* `createClient` (@supabase/supabase-js) return for this schema. Writing the
-* resolved schema argument explicitly keeps the server, browser, and
-* service-role clients mutually assignable to `Client` across @supabase/*
-* versions, where the bare `SupabaseClient<Database>` form (which defaults the
-* third argument to `GenericSchema`) is no longer assignable to the resolved
-* form the factories produce.
+* Uses the bare single-argument form so every generic schema/options
+* parameter resolves via the library's own defaults -- the same defaults
+* `createServerClient`, `createBrowserClient` (@supabase/ssr), and
+* `createClient` (@supabase/supabase-js) rely on. This keeps the server,
+* browser, and service-role clients mutually assignable to `Client` without
+* re-pinning positional generics that have changed shape across
+* @supabase/supabase-js versions.
 */
-export type Client = SupabaseClient<Database, 'public', Database['public']>;
+export type Client = SupabaseClient<Database>;
 
 /**
 * Uniform result wrapper. Services never throw for expected failures (a missing

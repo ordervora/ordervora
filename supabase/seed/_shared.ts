@@ -37,7 +37,9 @@ export function createSeedClient(): SeedClient {
 }
 
 /** Throws on a Supabase error, otherwise returns the data. Keeps seed steps terse. */
-export function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T {
+export function unwrap<T>(
+  result: { data: T; error: null } | { data: null; error: { message: string } },
+): T {
   if (result.error) {
     throw new Error(result.error.message);
   }

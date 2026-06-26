@@ -10,7 +10,7 @@
  * here, where revenue visibility is the point.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
