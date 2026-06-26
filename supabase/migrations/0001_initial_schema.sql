@@ -6,8 +6,10 @@
 -- Security model: Postgres Row Level Security (RLS) on every tenant table
 -- Roles         : customer · kitchen · manager · owner · platform_admin
 -- ----------------------------------------------------------------------------
--- Apply order  : extensions -> enums -> helper fns -> tables -> indexes
---                -> triggers -> RLS -> policies -> realtime
+-- Apply order  : extensions -> enums -> tables -> helper fns -> indexes
+--                -> triggers -> RLS -> policies -> views -> realtime
+-- (Tables must precede helper functions: `language sql` function bodies are
+-- validated against existing relations at CREATE FUNCTION time.)
 -- ============================================================================
 
 
@@ -62,172 +64,7 @@ create type event_actor as enum ('customer', 'staff', 'system', 'payment_webhook
 
 
 -- ============================================================================
--- 2. HELPER FUNCTIONS  (SECURITY DEFINER — used inside RLS policies)
--- ----------------------------------------------------------------------------
--- These centralize the "who am I / what can I touch" logic so policies stay
--- readable. They are SECURITY DEFINER and STABLE, and live in a locked-down
--- schema path. They read restaurant_staff WITHOUT triggering RLS recursion.
--- ============================================================================
-
--- True if the current user is the global platform operator (you).
-create or replace function auth.is_platform_admin()
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select coalesce(
-    (select is_platform_admin from public.profiles where id = auth.uid()),
-    false
-  );
-$$;
-
--- True if current user is ACTIVE staff at the given restaurant (any role).
-create or replace function auth.is_staff_of(p_restaurant uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select exists (
-    select 1 from public.restaurant_staff s
-    where s.restaurant_id = p_restaurant
-      and s.user_id = auth.uid()
-      and s.status = 'active'
-  );
-$$;
-
--- Current user's role at a given restaurant (null if not staff).
-create or replace function auth.role_at(p_restaurant uuid)
-returns staff_role
-language sql stable security definer set search_path = public
-as $$
-  select s.role from public.restaurant_staff s
-  where s.restaurant_id = p_restaurant
-    and s.user_id = auth.uid()
-    and s.status = 'active'
-  limit 1;
-$$;
-
--- True if current user is owner/manager at the restaurant (the "money + config"
--- tier). Used to gate revenue, payments, settings, staff management.
-create or replace function auth.is_manager_of(p_restaurant uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select exists (
-    select 1 from public.restaurant_staff s
-    where s.restaurant_id = p_restaurant
-      and s.user_id = auth.uid()
-      and s.status = 'active'
-      and s.role in ('owner', 'manager')
-  );
-$$;
-
--- True if current user is the owner of the restaurant (top tier).
-create or replace function auth.is_owner_of(p_restaurant uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select exists (
-    select 1 from public.restaurant_staff s
-    where s.restaurant_id = p_restaurant
-      and s.user_id = auth.uid()
-      and s.status = 'active'
-      and s.role = 'owner'
-  );
-$$;
-
--- True if current user is kitchen-tier staff (kitchen or cashier) — the
--- operational floor that may move tickets but must never see money.
-create or replace function auth.is_kitchen_of(p_restaurant uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select exists (
-    select 1 from public.restaurant_staff s
-    where s.restaurant_id = p_restaurant
-      and s.user_id = auth.uid()
-      and s.status = 'active'
-      and s.role in ('kitchen', 'cashier', 'delivery')
-  );
-$$;
-
--- Resolve the customer row owned by the current auth user, scoped to a store.
-create or replace function auth.current_customer(p_restaurant uuid)
-returns uuid
-language sql stable security definer set search_path = public
-as $$
-  select c.id from public.customers c
-  where c.restaurant_id = p_restaurant
-    and c.auth_user_id = auth.uid()
-  limit 1;
-$$;
-
--- Generic updated_at trigger fn.
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
--- ----------------------------------------------------------------------------
--- ORDER NUMBERING (8): per-restaurant, gapless, race-safe.
--- A counter row per restaurant is locked FOR UPDATE inside the insert trigger,
--- so two concurrent checkouts can never collide on the same order_number.
--- ----------------------------------------------------------------------------
-create table public.order_counters (
-  restaurant_id uuid primary key references public.restaurants(id) on delete cascade,
-  last_number   integer not null default 1000
-);
-alter table public.order_counters enable row level security;
--- counters are mutated only by the SECURITY DEFINER trigger; no direct policies
--- are granted, so application roles can never read or tamper with them.
-
-create or replace function public.assign_order_number()
-returns trigger
-language plpgsql security definer set search_path = public as $$
-declare
-  next_no integer;
-begin
-  if new.order_number is not null then
-    return new;  -- explicit number provided (e.g. import) — respect it
-  end if;
-
-  insert into public.order_counters (restaurant_id, last_number)
-  values (new.restaurant_id, 1001)
-  on conflict (restaurant_id)
-  do update set last_number = public.order_counters.last_number + 1
-  returning last_number into next_no;
-
-  new.order_number := next_no;
-  return new;
-end;
-$$;
-
--- ----------------------------------------------------------------------------
--- PROFILE AUTO-PROVISION (9) — every new auth.users row gets a profiles row
--- automatically. Without this, new signups have no profile and every RLS
--- helper returns false, silently locking them out. Pulls name/avatar from the
--- OAuth/email signup metadata when present. The trigger itself is created at
--- the end (section 5b) once profiles exists.
--- ----------------------------------------------------------------------------
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.profiles (id, full_name, avatar_url, phone)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
-    new.raw_user_meta_data->>'avatar_url',
-    new.phone
-  )
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
-
--- ============================================================================
--- 3. TABLES
+-- 2. TABLES
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -272,6 +109,19 @@ create table public.restaurants (
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
+
+-- ----------------------------------------------------------------------------
+-- ORDER NUMBERING (8): per-restaurant, gapless, race-safe.
+-- A counter row per restaurant is locked FOR UPDATE inside the insert trigger,
+-- so two concurrent checkouts can never collide on the same order_number.
+-- ----------------------------------------------------------------------------
+create table public.order_counters (
+  restaurant_id uuid primary key references public.restaurants(id) on delete cascade,
+  last_number   integer not null default 1000
+);
+alter table public.order_counters enable row level security;
+-- counters are mutated only by the SECURITY DEFINER trigger; no direct policies
+-- are granted, so application roles can never read or tamper with them.
 
 -- ----------------------------------------------------------------------------
 -- restaurant_staff — join of profile -> restaurant + role. Drives ALL RLS.
@@ -562,34 +412,6 @@ create table public.order_events (
 );
 
 -- ----------------------------------------------------------------------------
--- AUTO-LOG order state transitions into order_events, and stamp the matching
--- timestamp column on orders (accepted_at/started_at/ready_at/completed_at).
--- Keeps the event log and the denormalized timestamps perfectly in sync.
--- ----------------------------------------------------------------------------
-create or replace function public.log_order_transition()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  if tg_op = 'INSERT' then
-    insert into public.order_events (restaurant_id, order_id, from_state, to_state, actor_type, actor_id)
-    values (new.restaurant_id, new.id, null, new.state, 'system', auth.uid());
-    return new;
-  end if;
-
-  if new.state is distinct from old.state then
-    insert into public.order_events (restaurant_id, order_id, from_state, to_state, actor_type, actor_id)
-    values (new.restaurant_id, new.id, old.state, new.state, 'staff', auth.uid());
-
-    -- stamp lifecycle timestamps
-    if new.state = 'accepted'          and new.accepted_at  is null then new.accepted_at  := now(); end if;
-    if new.state = 'preparing'         and new.started_at   is null then new.started_at   := now(); end if;
-    if new.state = 'ready'             and new.ready_at     is null then new.ready_at     := now(); end if;
-    if new.state in ('completed')      and new.completed_at is null then new.completed_at := now(); end if;
-  end if;
-  return new;
-end;
-$$;
-
--- ----------------------------------------------------------------------------
 -- payments — money movement, one order : many payment attempts/refunds.
 -- Holds Stripe ids. STRICTLY manager-tier — kitchen has zero access.
 -- ----------------------------------------------------------------------------
@@ -732,6 +554,191 @@ create table public.audit_logs (
 
 
 -- ============================================================================
+-- 3. HELPER FUNCTIONS  (SECURITY DEFINER — used inside RLS policies)
+-- ----------------------------------------------------------------------------
+-- These centralize the "who am I / what can I touch" logic so policies stay
+-- readable. They are SECURITY DEFINER and STABLE, and live in a locked-down
+-- schema path. They read restaurant_staff WITHOUT triggering RLS recursion.
+-- ============================================================================
+
+-- True if the current user is the global platform operator (you).
+create or replace function public.is_platform_admin()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select coalesce(
+    (select is_platform_admin from public.profiles where id = auth.uid()),
+    false
+  );
+$$;
+
+-- True if current user is ACTIVE staff at the given restaurant (any role).
+create or replace function public.is_staff_of(p_restaurant uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.restaurant_staff s
+    where s.restaurant_id = p_restaurant
+      and s.user_id = auth.uid()
+      and s.status = 'active'
+  );
+$$;
+
+-- Current user's role at a given restaurant (null if not staff).
+create or replace function public.role_at(p_restaurant uuid)
+returns staff_role
+language sql stable security definer set search_path = public
+as $$
+  select s.role from public.restaurant_staff s
+  where s.restaurant_id = p_restaurant
+    and s.user_id = auth.uid()
+    and s.status = 'active'
+  limit 1;
+$$;
+
+-- True if current user is owner/manager at the restaurant (the "money + config"
+-- tier). Used to gate revenue, payments, settings, staff management.
+create or replace function public.is_manager_of(p_restaurant uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.restaurant_staff s
+    where s.restaurant_id = p_restaurant
+      and s.user_id = auth.uid()
+      and s.status = 'active'
+      and s.role in ('owner', 'manager')
+  );
+$$;
+
+-- True if current user is the owner of the restaurant (top tier).
+create or replace function public.is_owner_of(p_restaurant uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.restaurant_staff s
+    where s.restaurant_id = p_restaurant
+      and s.user_id = auth.uid()
+      and s.status = 'active'
+      and s.role = 'owner'
+  );
+$$;
+
+-- True if current user is kitchen-tier staff (kitchen or cashier) — the
+-- operational floor that may move tickets but must never see money.
+create or replace function public.is_kitchen_of(p_restaurant uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.restaurant_staff s
+    where s.restaurant_id = p_restaurant
+      and s.user_id = auth.uid()
+      and s.status = 'active'
+      and s.role in ('kitchen', 'cashier', 'delivery')
+  );
+$$;
+
+-- Resolve the customer row owned by the current auth user, scoped to a store.
+create or replace function public.current_customer(p_restaurant uuid)
+returns uuid
+language sql stable security definer set search_path = public
+as $$
+  select c.id from public.customers c
+  where c.restaurant_id = p_restaurant
+    and c.auth_user_id = auth.uid()
+  limit 1;
+$$;
+
+-- Generic updated_at trigger fn.
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- ORDER NUMBERING (8): assigns a race-safe per-restaurant order number.
+-- A counter row per restaurant is locked FOR UPDATE inside the insert trigger,
+-- so two concurrent checkouts can never collide on the same order_number.
+-- ----------------------------------------------------------------------------
+create or replace function public.assign_order_number()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  next_no integer;
+begin
+  if new.order_number is not null then
+    return new;  -- explicit number provided (e.g. import) — respect it
+  end if;
+
+  insert into public.order_counters (restaurant_id, last_number)
+  values (new.restaurant_id, 1001)
+  on conflict (restaurant_id)
+  do update set last_number = public.order_counters.last_number + 1
+  returning last_number into next_no;
+
+  new.order_number := next_no;
+  return new;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- PROFILE AUTO-PROVISION (9) — every new auth.users row gets a profiles row
+-- automatically. Without this, new signups have no profile and every RLS
+-- helper returns false, silently locking them out. Pulls name/avatar from the
+-- OAuth/email signup metadata when present. The trigger itself is created in
+-- section 5 once auth.users exists (it always does).
+-- ----------------------------------------------------------------------------
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, full_name, avatar_url, phone)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
+    new.raw_user_meta_data->>'avatar_url',
+    new.phone
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- AUTO-LOG order state transitions into order_events, and stamp the matching
+-- timestamp column on orders (accepted_at/started_at/ready_at/completed_at).
+-- Keeps the event log and the denormalized timestamps perfectly in sync.
+-- ----------------------------------------------------------------------------
+create or replace function public.log_order_transition()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.order_events (restaurant_id, order_id, from_state, to_state, actor_type, actor_id)
+    values (new.restaurant_id, new.id, null, new.state, 'system', auth.uid());
+    return new;
+  end if;
+
+  if new.state is distinct from old.state then
+    insert into public.order_events (restaurant_id, order_id, from_state, to_state, actor_type, actor_id)
+    values (new.restaurant_id, new.id, old.state, new.state, 'staff', auth.uid());
+
+    -- stamp lifecycle timestamps
+    if new.state = 'accepted'          and new.accepted_at  is null then new.accepted_at  := now(); end if;
+    if new.state = 'preparing'         and new.started_at   is null then new.started_at   := now(); end if;
+    if new.state = 'ready'             and new.ready_at     is null then new.ready_at     := now(); end if;
+    if new.state in ('completed')      and new.completed_at is null then new.completed_at := now(); end if;
+  end if;
+  return new;
+end;
+$$;
+
+
+-- ============================================================================
 -- 4. INDEXES
 -- ----------------------------------------------------------------------------
 -- Every tenant table indexes restaurant_id (RLS filters on it constantly).
@@ -812,7 +819,7 @@ create index idx_audit_entity            on public.audit_logs(restaurant_id, ent
 
 
 -- ============================================================================
--- 5. updated_at TRIGGERS
+-- 5. TRIGGERS
 -- ============================================================================
 create trigger trg_profiles_updated        before update on public.profiles            for each row execute function public.set_updated_at();
 create trigger trg_restaurants_updated      before update on public.restaurants         for each row execute function public.set_updated_at();
@@ -911,7 +918,7 @@ alter table public.audit_logs                      force row level security;
 -- ---------- profiles --------------------------------------------------------
 create policy "profiles self read"
   on public.profiles for select
-  using ( id = auth.uid() or auth.is_platform_admin() );
+  using ( id = auth.uid() or public.is_platform_admin() );
 
 create policy "profiles self update"
   on public.profiles for update
@@ -920,39 +927,39 @@ create policy "profiles self update"
 
 create policy "profiles platform_admin all"
   on public.profiles for all
-  using ( auth.is_platform_admin() )
-  with check ( auth.is_platform_admin() );
+  using ( public.is_platform_admin() )
+  with check ( public.is_platform_admin() );
 
 -- ---------- restaurants -----------------------------------------------------
 -- Public can read active restaurants (storefront needs name/branding/hours).
 create policy "restaurants public read active"
   on public.restaurants for select
-  using ( is_active = true or auth.is_staff_of(id) or auth.is_platform_admin() );
+  using ( is_active = true or public.is_staff_of(id) or public.is_platform_admin() );
 
 create policy "restaurants owner update"
   on public.restaurants for update
-  using ( auth.is_owner_of(id) or auth.is_platform_admin() )
-  with check ( auth.is_owner_of(id) or auth.is_platform_admin() );
+  using ( public.is_owner_of(id) or public.is_platform_admin() )
+  with check ( public.is_owner_of(id) or public.is_platform_admin() );
 
 create policy "restaurants platform_admin insert"
   on public.restaurants for insert
-  with check ( auth.is_platform_admin() );
+  with check ( public.is_platform_admin() );
 
 create policy "restaurants platform_admin delete"
   on public.restaurants for delete
-  using ( auth.is_platform_admin() );
+  using ( public.is_platform_admin() );
 
 -- ---------- restaurant_staff ------------------------------------------------
 -- A staffer can see the roster of restaurants they belong to. Only owners
 -- (and platform_admin) can add/modify/remove staff.
 create policy "staff read own restaurants"
   on public.restaurant_staff for select
-  using ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 
 create policy "staff owner manage"
   on public.restaurant_staff for all
-  using ( auth.is_owner_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_owner_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_owner_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_owner_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- customers -------------------------------------------------------
 -- A customer reads/updates only their own row. Manager-tier staff read/manage
@@ -962,8 +969,8 @@ create policy "customers self read"
   on public.customers for select
   using (
     auth_user_id = auth.uid()
-    or auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    or public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
   );
 
 create policy "customers self update"
@@ -975,27 +982,27 @@ create policy "customers self insert"
   on public.customers for insert
   with check (
     auth_user_id = auth.uid()
-    or auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    or public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
   );
 
 create policy "customers manager manage"
   on public.customers for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- customer_addresses ----------------------------------------------
 create policy "addresses owner access"
   on public.customer_addresses for all
   using (
-    customer_id = auth.current_customer(restaurant_id)
-    or auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    customer_id = public.current_customer(restaurant_id)
+    or public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
   )
   with check (
-    customer_id = auth.current_customer(restaurant_id)
-    or auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    customer_id = public.current_customer(restaurant_id)
+    or public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
   );
 
 -- ---------- catalog: categories / products / images / modifiers -------------
@@ -1008,54 +1015,54 @@ create policy "categories public read"
   on public.categories for select using ( true );
 create policy "categories manager write"
   on public.categories for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- products
 create policy "products public read"
   on public.products for select using ( true );
 create policy "products manager write"
   on public.products for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 -- Kitchen may toggle availability (86 an item) but nothing else. Enforced by
 -- a column-narrow UPDATE policy; app sends only is_available.
 create policy "products kitchen toggle availability"
   on public.products for update
-  using ( auth.is_kitchen_of(restaurant_id) )
-  with check ( auth.is_kitchen_of(restaurant_id) );
+  using ( public.is_kitchen_of(restaurant_id) )
+  with check ( public.is_kitchen_of(restaurant_id) );
 
 -- product_images
 create policy "product_images public read"
   on public.product_images for select using ( true );
 create policy "product_images manager write"
   on public.product_images for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- modifiers
 create policy "modifiers public read"
   on public.modifiers for select using ( true );
 create policy "modifiers manager write"
   on public.modifiers for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- modifier_options
 create policy "modifier_options public read"
   on public.modifier_options for select using ( true );
 create policy "modifier_options manager write"
   on public.modifier_options for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- product_modifiers
 create policy "product_modifiers public read"
   on public.product_modifiers for select using ( true );
 create policy "product_modifiers manager write"
   on public.product_modifiers for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- orders ----------------------------------------------------------
 -- READ:
@@ -1070,23 +1077,23 @@ create policy "product_modifiers manager write"
 create policy "orders read"
   on public.orders for select
   using (
-    customer_id = auth.current_customer(restaurant_id)
-    or auth.is_staff_of(restaurant_id)
-    or auth.is_platform_admin()
+    customer_id = public.current_customer(restaurant_id)
+    or public.is_staff_of(restaurant_id)
+    or public.is_platform_admin()
   );
 
 create policy "orders customer insert"
   on public.orders for insert
   with check (
-    customer_id = auth.current_customer(restaurant_id)
-    or auth.is_staff_of(restaurant_id)
-    or auth.is_platform_admin()
+    customer_id = public.current_customer(restaurant_id)
+    or public.is_staff_of(restaurant_id)
+    or public.is_platform_admin()
   );
 
 create policy "orders staff advance state"
   on public.orders for update
-  using ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_staff_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- order_items / order_item_modifiers (OPERATIONAL — no money) ------
 -- These tables now contain NO money (split into *_financials). Kitchen-tier
@@ -1094,18 +1101,18 @@ create policy "orders staff advance state"
 create policy "order_items read"
   on public.order_items for select
   using (
-    auth.is_staff_of(restaurant_id)
-    or auth.is_platform_admin()
+    public.is_staff_of(restaurant_id)
+    or public.is_platform_admin()
     or exists (
       select 1 from public.orders o
       where o.id = order_items.order_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 create policy "order_items staff write"
   on public.order_items for all
-  using ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_staff_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 -- allow customer to insert their own line items at checkout
 create policy "order_items customer insert"
   on public.order_items for insert
@@ -1113,26 +1120,26 @@ create policy "order_items customer insert"
     exists (
       select 1 from public.orders o
       where o.id = order_items.order_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 
 create policy "order_item_modifiers read"
   on public.order_item_modifiers for select
   using (
-    auth.is_staff_of(restaurant_id)
-    or auth.is_platform_admin()
+    public.is_staff_of(restaurant_id)
+    or public.is_platform_admin()
     or exists (
       select 1 from public.order_items oi
       join public.orders o on o.id = oi.order_id
       where oi.id = order_item_modifiers.order_item_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 create policy "order_item_modifiers staff write"
   on public.order_item_modifiers for all
-  using ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_staff_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 create policy "order_item_modifiers customer insert"
   on public.order_item_modifiers for insert
   with check (
@@ -1140,7 +1147,7 @@ create policy "order_item_modifiers customer insert"
       select 1 from public.order_items oi
       join public.orders o on o.id = oi.order_id
       where oi.id = order_item_modifiers.order_item_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 
@@ -1151,17 +1158,17 @@ create policy "order_item_modifiers customer insert"
 create policy "order_events read"
   on public.order_events for select
   using (
-    auth.is_staff_of(restaurant_id)
-    or auth.is_platform_admin()
+    public.is_staff_of(restaurant_id)
+    or public.is_platform_admin()
     or exists (
       select 1 from public.orders o
       where o.id = order_events.order_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 create policy "order_events staff insert"
   on public.order_events for insert
-  with check ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  with check ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- order_financials (MANAGER-TIER — the hard revenue wall) ---------
 -- Kitchen-tier has NO policy here, so revenue/tax/tip/discount/total are
@@ -1170,18 +1177,18 @@ create policy "order_events staff insert"
 create policy "order_financials read"
   on public.order_financials for select
   using (
-    auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
     or exists (
       select 1 from public.orders o
       where o.id = order_financials.order_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 create policy "order_financials manager write"
   on public.order_financials for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 -- customer may insert their own order's financial row at checkout
 create policy "order_financials customer insert"
   on public.order_financials for insert
@@ -1189,7 +1196,7 @@ create policy "order_financials customer insert"
     exists (
       select 1 from public.orders o
       where o.id = order_financials.order_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 
@@ -1197,19 +1204,19 @@ create policy "order_financials customer insert"
 create policy "order_item_financials read"
   on public.order_item_financials for select
   using (
-    auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
     or exists (
       select 1 from public.order_items oi
       join public.orders o on o.id = oi.order_id
       where oi.id = order_item_financials.order_item_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 create policy "order_item_financials manager write"
   on public.order_item_financials for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 create policy "order_item_financials customer insert"
   on public.order_item_financials for insert
   with check (
@@ -1217,18 +1224,18 @@ create policy "order_item_financials customer insert"
       select 1 from public.order_items oi
       join public.orders o on o.id = oi.order_id
       where oi.id = order_item_financials.order_item_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 
 -- ---------- order_item_modifier_financials (MANAGER-TIER) -------------------
 create policy "oimf read"
   on public.order_item_modifier_financials for select
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 create policy "oimf manager write"
   on public.order_item_modifier_financials for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 create policy "oimf customer insert"
   on public.order_item_modifier_financials for insert
   with check (
@@ -1237,15 +1244,15 @@ create policy "oimf customer insert"
       join public.order_items oi on oi.id = m.order_item_id
       join public.orders o on o.id = oi.order_id
       where m.id = order_item_modifier_financials.order_item_modifier_id
-        and o.customer_id = auth.current_customer(o.restaurant_id)
+        and o.customer_id = public.current_customer(o.restaurant_id)
     )
   );
 
 -- ---------- product_costs (MANAGER-TIER — margin data, never public) --------
 create policy "product_costs manager all"
   on public.product_costs for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- payments  (MANAGER-TIER ONLY — kitchen fully blocked) -----------
 -- No customer access, no kitchen access. Only manager/owner + platform_admin.
@@ -1253,23 +1260,23 @@ create policy "product_costs manager all"
 -- this table. This is the hard wall around revenue/payment data.
 create policy "payments manager read"
   on public.payments for select
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 create policy "payments manager write"
   on public.payments for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- coupons ---------------------------------------------------------
 -- Public can read ACTIVE coupons (to validate a code client-side preview);
 -- authoritative validation happens server-side. Manager-tier manages them.
 create policy "coupons public read active"
   on public.coupons for select
-  using ( is_active = true or auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( is_active = true or public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 create policy "coupons manager write"
   on public.coupons for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- coupon_redemptions (manager read; customer/system insert) -------
 -- Redemption is a financial event: manager-tier reads all; a customer may read
@@ -1277,80 +1284,80 @@ create policy "coupons manager write"
 create policy "coupon_redemptions read"
   on public.coupon_redemptions for select
   using (
-    auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
-    or customer_id = auth.current_customer(restaurant_id)
+    public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
+    or customer_id = public.current_customer(restaurant_id)
   );
 create policy "coupon_redemptions insert"
   on public.coupon_redemptions for insert
   with check (
-    auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
-    or customer_id = auth.current_customer(restaurant_id)
+    public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
+    or customer_id = public.current_customer(restaurant_id)
   );
 create policy "coupon_redemptions manager manage"
   on public.coupon_redemptions for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- reviews (public read published; customer writes own; owner replies)
 create policy "reviews public read"
   on public.reviews for select
-  using ( is_published = true or auth.is_manager_of(restaurant_id) or auth.is_platform_admin()
-          or customer_id = auth.current_customer(restaurant_id) );
+  using ( is_published = true or public.is_manager_of(restaurant_id) or public.is_platform_admin()
+          or customer_id = public.current_customer(restaurant_id) );
 -- a customer may post a review as themselves
 create policy "reviews customer insert"
   on public.reviews for insert
-  with check ( customer_id = auth.current_customer(restaurant_id) );
+  with check ( customer_id = public.current_customer(restaurant_id) );
 -- a customer may edit/delete their own review (but not the reply fields — the
 -- app restricts columns; managers own the reply path)
 create policy "reviews customer update own"
   on public.reviews for update
-  using ( customer_id = auth.current_customer(restaurant_id) )
-  with check ( customer_id = auth.current_customer(restaurant_id) );
+  using ( customer_id = public.current_customer(restaurant_id) )
+  with check ( customer_id = public.current_customer(restaurant_id) );
 -- managers/owners reply to and moderate reviews
 create policy "reviews manager manage"
   on public.reviews for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 create policy "loyalty self read"
   on public.loyalty_points for select
   using (
-    customer_id = auth.current_customer(restaurant_id)
-    or auth.is_manager_of(restaurant_id)
-    or auth.is_platform_admin()
+    customer_id = public.current_customer(restaurant_id)
+    or public.is_manager_of(restaurant_id)
+    or public.is_platform_admin()
   );
 create policy "loyalty manager write"
   on public.loyalty_points for all
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- notifications  (all active staff read; system/manager write) ----
 -- Kitchen NEEDS notifications (new-order alerts) — this is operational, not
 -- financial, so kitchen-tier may read.
 create policy "notifications staff read"
   on public.notifications for select
-  using ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 create policy "notifications staff write"
   on public.notifications for all
-  using ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_staff_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- restaurant_settings  (OWNER-tier only) --------------------------
 -- Contains security/printer/sound config. Kitchen reads sound config via app
 -- defaults, not this table. Lock to owner + platform_admin.
 create policy "settings owner all"
   on public.restaurant_settings for all
-  using ( auth.is_owner_of(restaurant_id) or auth.is_platform_admin() )
-  with check ( auth.is_owner_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_owner_of(restaurant_id) or public.is_platform_admin() )
+  with check ( public.is_owner_of(restaurant_id) or public.is_platform_admin() );
 
 -- ---------- audit_logs  (MANAGER read; insert by anyone scoped; no edits) ---
 create policy "audit manager read"
   on public.audit_logs for select
-  using ( auth.is_manager_of(restaurant_id) or auth.is_platform_admin() );
+  using ( public.is_manager_of(restaurant_id) or public.is_platform_admin() );
 create policy "audit staff insert"
   on public.audit_logs for insert
-  with check ( auth.is_staff_of(restaurant_id) or auth.is_platform_admin() );
+  with check ( public.is_staff_of(restaurant_id) or public.is_platform_admin() );
 -- no update/delete policies => append-only by construction.
 
 
