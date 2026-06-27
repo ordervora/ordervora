@@ -57,7 +57,7 @@ function describeAuthError(error: { message: string; code?: string; status?: num
   }
   // Temporary: surface the raw GoTrue error since we have no log access from this
   // environment right now. Revert to a generic message once the cause is fixed.
-  return `Could not send the sign-in link. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message}`;
+  return `Could not send the sign-in link. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message} (project: ${clientEnv.supabaseUrl})`;
 }
 
 /** Sends a one-time sign-in link to the given email address. */
@@ -72,12 +72,22 @@ export async function signInWithEmail(
 
   try {
     const supabase = await getServerClient();
-    const { error } = await supabase.auth.signInWithOtp({
+    const { data, error } = await supabase.auth.signInWithOtp({
       email: trimmed,
       options: {
         emailRedirectTo: buildCallbackUrl(redirectTo),
         shouldCreateUser: true,
       },
+    });
+
+    // Full dump of the raw GoTrue response, visible in Vercel function logs.
+    // `data` is `{ user: null, session: null }` on success for OTP, so this
+    // line mostly proves whether the request reached Supabase at all and
+    // which project it hit.
+    console.error('[auth] signInWithOtp raw response', {
+      supabaseUrl: clientEnv.supabaseUrl,
+      data,
+      error: error ? { message: error.message, status: error.status, code: error.code } : null,
     });
 
     if (error) {
@@ -91,7 +101,10 @@ export async function signInWithEmail(
     // Next.js redact it behind a generic digest message.
     const detail = err instanceof Error ? err.message : String(err);
     console.error('[auth] signInWithEmail threw', detail);
-    return { ok: false, message: `Sign-in request failed before reaching Supabase: ${detail}` };
+    return {
+      ok: false,
+      message: `Sign-in request failed before reaching Supabase: ${detail} (project: ${clientEnv.supabaseUrl})`,
+    };
   }
 }
 
@@ -103,24 +116,39 @@ export async function signInWithOAuth(
   provider: Provider,
   redirectTo: string = '/',
 ): Promise<AuthActionResult & { url?: string }> {
-  const supabase = await getServerClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: buildCallbackUrl(redirectTo),
-    },
-  });
+  try {
+    const supabase = await getServerClient();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: buildCallbackUrl(redirectTo),
+      },
+    });
 
-  if (error || !data?.url) {
-    if (error) {
-      console.error('[auth] oauth', provider, error.status, error.code, error.message);
-      return {
-        ok: false,
-        message: `Could not start sign-in. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message}`,
-      };
+    console.error('[auth] signInWithOAuth raw response', {
+      supabaseUrl: clientEnv.supabaseUrl,
+      provider,
+      hasUrl: Boolean(data?.url),
+      error: error ? { message: error.message, status: error.status, code: error.code } : null,
+    });
+
+    if (error || !data?.url) {
+      if (error) {
+        return {
+          ok: false,
+          message: `Could not start sign-in. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message} (project: ${clientEnv.supabaseUrl})`,
+        };
+      }
+      return { ok: false, message: 'Could not start sign-in. Try again.' };
     }
-    return { ok: false, message: 'Could not start sign-in. Try again.' };
-  }
 
-  return { ok: true, message: 'Redirecting…', url: data.url };
+    return { ok: true, message: 'Redirecting…', url: data.url };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('[auth] signInWithOAuth threw', detail);
+    return {
+      ok: false,
+      message: `Sign-in request failed before reaching Supabase: ${detail} (project: ${clientEnv.supabaseUrl})`,
+    };
+  }
 }
