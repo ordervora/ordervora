@@ -70,20 +70,29 @@ export async function signInWithEmail(
     return { ok: false, message: 'Enter a valid email address.' };
   }
 
-  const supabase = await getServerClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: trimmed,
-    options: {
-      emailRedirectTo: buildCallbackUrl(redirectTo),
-      shouldCreateUser: true,
-    },
-  });
+  try {
+    const supabase = await getServerClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmed,
+      options: {
+        emailRedirectTo: buildCallbackUrl(redirectTo),
+        shouldCreateUser: true,
+      },
+    });
 
-  if (error) {
-    return { ok: false, message: describeAuthError(error) };
+    if (error) {
+      return { ok: false, message: describeAuthError(error) };
+    }
+
+    return { ok: true, message: 'Check your email for a sign-in link.' };
+  } catch (err) {
+    // Anything thrown before/instead of a returned AuthError (missing env var,
+    // network failure reaching Supabase, etc.) — surface it instead of letting
+    // Next.js redact it behind a generic digest message.
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('[auth] signInWithEmail threw', detail);
+    return { ok: false, message: `Sign-in request failed before reaching Supabase: ${detail}` };
   }
-
-  return { ok: true, message: 'Check your email for a sign-in link.' };
 }
 
 /**
