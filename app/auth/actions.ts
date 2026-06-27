@@ -55,7 +55,9 @@ function describeAuthError(error: { message: string; code?: string; status?: num
   ) {
     return 'Sign-in is misconfigured for this domain. Contact support.';
   }
-  return 'Could not send the sign-in link. Try again.';
+  // Temporary: surface the raw GoTrue error since we have no log access from this
+  // environment right now. Revert to a generic message once the cause is fixed.
+  return `Could not send the sign-in link. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message}`;
 }
 
 /** Sends a one-time sign-in link to the given email address. */
@@ -101,7 +103,13 @@ export async function signInWithOAuth(
   });
 
   if (error || !data?.url) {
-    if (error) console.error('[auth] oauth', provider, error.status, error.code, error.message);
+    if (error) {
+      console.error('[auth] oauth', provider, error.status, error.code, error.message);
+      return {
+        ok: false,
+        message: `Could not start sign-in. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message}`,
+      };
+    }
     return { ok: false, message: 'Could not start sign-in. Try again.' };
   }
 
