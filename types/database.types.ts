@@ -1088,6 +1088,16 @@ export interface Database {
         Args: { payload: Json };
         Returns: { order_id: string; order_number: number }[];
       };
+      create_restaurant_with_owner: {
+        Args: {
+          p_slug: string;
+          p_name: string;
+          p_email?: string | null;
+          p_phone?: string | null;
+          p_timezone?: string | null;
+        };
+        Returns: { id: string; slug: string }[];
+      };
     };
     Enums: {
       staff_role: StaffRoleEnum;

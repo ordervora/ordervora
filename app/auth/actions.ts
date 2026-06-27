@@ -31,6 +31,33 @@ function buildCallbackUrl(redirectTo: string): string {
   return url.toString();
 }
 
+/**
+ * Maps a Supabase Auth error to a message safe to show the user. Logs the raw
+ * error server-side (visible in Vercel function logs) since GoTrue's own
+ * messages are often either too technical or, for rate limits, accurate
+ * enough to show directly.
+ */
+function describeAuthError(error: { message: string; code?: string; status?: number }): string {
+  console.error('[auth]', error.status, error.code, error.message);
+
+  if (error.code === 'over_email_send_rate_limit' || error.status === 429) {
+    return 'Too many sign-in attempts. Wait a minute and try again.';
+  }
+  if (error.code === 'signup_disabled') {
+    return 'New sign-ups are currently disabled.';
+  }
+  if (error.code === 'email_address_invalid') {
+    return 'That email address looks invalid.';
+  }
+  if (
+    error.message.toLowerCase().includes('redirect') ||
+    error.code === 'validation_failed'
+  ) {
+    return 'Sign-in is misconfigured for this domain. Contact support.';
+  }
+  return 'Could not send the sign-in link. Try again.';
+}
+
 /** Sends a one-time sign-in link to the given email address. */
 export async function signInWithEmail(
   email: string,
@@ -51,7 +78,7 @@ export async function signInWithEmail(
   });
 
   if (error) {
-    return { ok: false, message: 'Could not send the sign-in link. Try again.' };
+    return { ok: false, message: describeAuthError(error) };
   }
 
   return { ok: true, message: 'Check your email for a sign-in link.' };
@@ -74,6 +101,7 @@ export async function signInWithOAuth(
   });
 
   if (error || !data?.url) {
+    if (error) console.error('[auth] oauth', provider, error.status, error.code, error.message);
     return { ok: false, message: 'Could not start sign-in. Try again.' };
   }
 
