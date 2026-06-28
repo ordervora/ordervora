@@ -19,6 +19,11 @@
   --danger: #b3402f;
   --radius: 14px;
 
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 0.12s;
+  --duration-base: 0.2s;
+  --duration-slow: 0.32s;
+
   color: var(--ink);
   background: var(--paper);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -27,6 +32,31 @@
 }
 
 .ov * { box-sizing: border-box; }
+
+/* ---- motion primitives ------------------------------------------------ */
+@keyframes ov-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ov-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ov-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+.ov-stagger-in { animation: ov-slide-up var(--duration-slow) var(--ease) backwards; }
+
+/* ---- skeleton loaders -------------------------------------------------- */
+.ov-skeleton {
+  border-radius: 8px; background-color: var(--line);
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--card) 80%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: ov-shimmer 1.4s ease-in-out infinite;
+}
 
 .ov-shell {
   max-width: 720px;
@@ -148,10 +178,13 @@
   border-radius: var(--radius);
   padding: 12px;
   cursor: pointer;
-  transition: border-color 0.12s ease, transform 0.05s ease;
+  transition: border-color var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
-.ov-product:active { transform: scale(0.995); }
-.ov-product:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.ov-product:active { transform: scale(0.985); }
+.ov-product:hover {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--ink) 12%, transparent);
+}
 .ov-product[data-out='true'] { opacity: 0.55; }
 
 .ov-product-body { flex: 1; min-width: 0; }
@@ -199,6 +232,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  animation: ov-fade-in var(--duration-base) var(--ease);
 }
 
 .ov-sheet {
@@ -210,9 +244,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: ov-rise 0.18s ease-out;
+  animation: ov-rise 0.22s var(--ease);
 }
-@keyframes ov-rise { from { transform: translateY(16px); } to { transform: translateY(0); } }
+@keyframes ov-rise { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 .ov-sheet-img { width: 100%; height: 200px; object-fit: cover; background: var(--line); }
 .ov-sheet-scroll { overflow-y: auto; padding: 18px 18px 12px; }
@@ -281,9 +315,11 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: transform var(--duration-fast) var(--ease), opacity var(--duration-fast) var(--ease);
 }
 .ov-btn[data-block='true'] { width: 100%; }
-.ov-btn:disabled { opacity: 0.55; cursor: default; }
+.ov-btn:active { transform: scale(0.98); }
+.ov-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
 .ov-btn[data-variant='ghost'] { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .ov-btn[data-variant='ink'] { background: var(--ink); color: var(--paper); }
 .ov-btn-grow { flex: 1; }
@@ -297,6 +333,7 @@
   justify-content: center;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   pointer-events: none;
+  animation: ov-slide-up var(--duration-slow) var(--ease);
 }
 .ov-rail-inner {
   pointer-events: auto;
@@ -373,15 +410,18 @@
 .ov-coupon .ov-input { flex: 1; }
 
 .ov-note { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.ov-error, .ov-success {
+  border-radius: 10px; padding: 10px 12px;
+  font-size: 13px; font-weight: 600;
+  animation: ov-slide-up var(--duration-base) var(--ease);
+}
 .ov-error {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
-  color: var(--danger); border-radius: 10px; padding: 10px 12px;
-  font-size: 13px; font-weight: 600;
+  color: var(--danger);
 }
 .ov-success {
   background: color-mix(in srgb, var(--fresh) 12%, transparent);
-  color: var(--fresh); border-radius: 10px; padding: 10px 12px;
-  font-size: 13px; font-weight: 600;
+  color: var(--fresh);
 }
 
 /* ---- loyalty / account ------------------------------------------------ */
@@ -413,20 +453,36 @@
 .ov-step-dot {
   width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); background: var(--card);
   flex: none;
+  transition: background var(--duration-base) var(--ease), border-color var(--duration-base) var(--ease);
 }
 .ov-step[data-done='true'] .ov-step-dot { background: var(--fresh); border-color: var(--fresh); }
 .ov-step[data-current='true'] .ov-step-dot { border-color: var(--brand); background: var(--brand); }
-.ov-step-line { width: 2px; flex: 1; background: var(--line); min-height: 22px; }
+.ov-step-line { width: 2px; flex: 1; background: var(--line); min-height: 22px; transition: background var(--duration-base) var(--ease); }
 .ov-step[data-done='true'] .ov-step-line { background: var(--fresh); }
 .ov-step-body { padding-bottom: 16px; }
 .ov-step-name { font-weight: 700; font-size: 15px; }
 .ov-step[data-pending='true'] .ov-step-name { color: var(--muted); }
 .ov-step-time { font-size: 12px; color: var(--muted); }
 
-.ov-empty { text-align: center; color: var(--muted); padding: 48px 16px; font-size: 14px; }
+.ov-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  color: var(--muted); padding: 56px 20px; font-size: 14px; gap: 4px;
+  animation: ov-fade-in var(--duration-slow) var(--ease);
+}
+.ov-empty-icon { color: color-mix(in srgb, var(--muted) 60%, transparent); margin-bottom: 10px; }
+.ov-empty-title { color: var(--ink); font-size: 16px; font-weight: 800; }
+.ov-empty-desc { color: var(--muted); font-size: 13px; max-width: 280px; }
+.ov-empty-action { margin-top: 16px; }
 
 .ov-link { color: var(--brand); font-weight: 700; text-decoration: none; cursor: pointer; background: none; border: none; font-size: inherit; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ov-sheet { animation: none; }
+  .ov-sheet,
+  .ov-sheet-backdrop,
+  .ov-rail,
+  .ov-empty,
+  .ov-error,
+  .ov-success,
+  .ov-skeleton,
+  .ov-stagger-in { animation: none; }
 }

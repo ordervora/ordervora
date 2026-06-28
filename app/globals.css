@@ -21,6 +21,25 @@ body {
   color-scheme: light;
 }
 
+/* ---- shared spinner (used inside buttons across all surfaces) --------- */
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  opacity: 0.85;
+  animation: spinner-spin 0.65s linear infinite;
+  flex: none;
+}
+
+@keyframes spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
