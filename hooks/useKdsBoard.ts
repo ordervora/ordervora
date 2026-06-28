@@ -26,9 +26,14 @@ export interface UseKdsBoardResult {
   tickets: KdsTicketDetail[];
   loading: boolean;
   error: string | null;
+  /** Order ids that just arrived, briefly, for the arrival highlight animation. */
+  newTicketIds: Set<string>;
   /** Re-pull the whole board (use after a reconnect). */
   refetch: () => Promise<void>;
 }
+
+/** How long a ticket stays flagged "new" for the arrival highlight animation. */
+const NEW_TICKET_HIGHLIGHT_MS = 1100;
 
 const ACTIVE: readonly OrderState[] = KDS_ACTIVE_STATES;
 
@@ -43,11 +48,24 @@ export function useKdsBoard(
   const [tickets, setTickets] = useState<KdsTicketDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newTicketIds, setNewTicketIds] = useState<Set<string>>(new Set());
 
   // Track known order ids so we can detect genuinely new tickets for the sound.
   const knownIds = useRef<Set<string>>(new Set());
   const onNewTicketRef = useRef(onNewTicket);
   onNewTicketRef.current = onNewTicket;
+
+  const flagNewTicket = useCallback((id: string) => {
+    setNewTicketIds((prev) => new Set(prev).add(id));
+    setTimeout(() => {
+      setNewTicketIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, NEW_TICKET_HIGHLIGHT_MS);
+  }, []);
 
   const loadBoard = useCallback(async (): Promise<KdsTicketDetail[]> => {
     const client = getBrowserClient();
@@ -111,6 +129,7 @@ export function useKdsBoard(
           for (const ticket of fresh) {
             if (ticket.id && !knownIds.current.has(ticket.id)) {
               onNewTicketRef.current?.(ticket);
+              flagNewTicket(ticket.id);
             }
           }
 
@@ -126,5 +145,5 @@ export function useKdsBoard(
     };
   }, [restaurantId, loadBoard]);
 
-  return { tickets, loading, error, refetch };
+  return { tickets, loading, error, newTicketIds, refetch };
 }

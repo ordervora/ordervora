@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useOrderTracker } from '@/hooks/useOrderTracker';
 import type { OrderState } from '@/config/constants';
 import { formatClock } from '@/lib/utils/time';
+import { SkeletonOrder } from '@/components/customer/Skeleton';
 
 export interface OrderTrackerProps {
   orderId: string;
@@ -82,7 +83,7 @@ export function OrderTracker({
       </div>
 
       <div className="ov-pad ov-stack">
-        {loading && <div className="ov-empty">Loading your order…</div>}
+        {loading && <SkeletonOrder />}
 
         {error && (
           <div className="ov-error">

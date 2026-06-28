@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { TrendingUp, Award, ClipboardList, Activity } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
@@ -24,6 +25,8 @@ import {
   todayWindow,
   lastDaysWindow,
 } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonBlock, SkeletonKpis, SkeletonFeed } from '@/components/dashboard/Skeleton';
 import { KDS_ACTIVE_STATES } from '@/config/constants';
 import type { OrderState } from '@/config/constants';
 
@@ -199,6 +202,9 @@ export function DashboardOverview() {
       </header>
 
       <div className="dash-body">
+        {loading ? (
+          <SkeletonKpis count={5} />
+        ) : (
         <div className="dash-kpis">
           <div className="dash-kpi" data-tone="green">
             <div className="dash-kpi-label">Revenue today</div>
@@ -238,6 +244,7 @@ export function DashboardOverview() {
             <div className="dash-kpi-sub">Today</div>
           </div>
         </div>
+        )}
 
         <div className="dash-grid" data-cols="2" style={{ marginBottom: 16 }}>
           <div className="dash-panel">
@@ -245,8 +252,14 @@ export function DashboardOverview() {
               <span className="dash-panel-title">Sales · last 7 days</span>
             </div>
             <div className="dash-panel-body">
-              {series.length === 0 ? (
-                <div className="dash-empty">No sales in this period yet.</div>
+              {loading ? (
+                <SkeletonBlock height={120} />
+              ) : series.length === 0 ? (
+                <EmptyState
+                  icon={TrendingUp}
+                  title="No sales in this period yet"
+                  description="Your 7-day sales trend will appear here once orders come in."
+                />
               ) : (
                 <div className="dash-chart">
                   {series.map((d) => (
@@ -273,8 +286,14 @@ export function DashboardOverview() {
               <span className="dash-panel-title">Best sellers</span>
             </div>
             <div className="dash-panel-body">
-              {bestSellers.length === 0 ? (
-                <div className="dash-empty">Not enough data yet.</div>
+              {loading ? (
+                <SkeletonBlock height={120} />
+              ) : bestSellers.length === 0 ? (
+                <EmptyState
+                  icon={Award}
+                  title="Not enough data yet"
+                  description="Best sellers are ranked from your most recent orders."
+                />
               ) : (
                 <div className="dash-bars">
                   {bestSellers.map((b) => (
@@ -307,7 +326,11 @@ export function DashboardOverview() {
             </div>
             <div className="dash-panel-body" data-flush="true">
               {liveOrders.length === 0 ? (
-                <div className="dash-empty">No active orders right now.</div>
+                <EmptyState
+                  icon={ClipboardList}
+                  title="No active orders right now"
+                  description="New orders will show up here in real time."
+                />
               ) : (
                 <table className="dash-table">
                   <tbody>
@@ -338,9 +361,13 @@ export function DashboardOverview() {
             </div>
             <div className="dash-panel-body">
               {loading ? (
-                <div className="dash-empty">Loading…</div>
+                <SkeletonFeed rows={4} />
               ) : activity.length === 0 ? (
-                <div className="dash-empty">No recent activity.</div>
+                <EmptyState
+                  icon={Activity}
+                  title="No recent activity"
+                  description="Order status changes will appear here as they happen."
+                />
               ) : (
                 <div className="dash-feed">
                   {activity.map((a) => (

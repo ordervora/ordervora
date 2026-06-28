@@ -8,9 +8,12 @@
  * pre-sorted oldest-first from the board so the cook works top-to-bottom.
  */
 
+import { Inbox, Flame, BellRing } from 'lucide-react';
+
 import { TicketCard } from './TicketCard';
 import type { KdsTicketDetail } from '@/lib/services/kds.service';
 import type { OrderState } from '@/config/constants';
+import type { LucideIcon } from 'lucide-react';
 
 export type ColumnState = 'waiting' | 'preparing' | 'ready';
 
@@ -20,6 +23,7 @@ export interface StationColumnProps {
   tickets: KdsTicketDetail[];
   now: number;
   pendingOrderId: string | null;
+  newTicketIds: Set<string>;
   onBump: (orderId: string, toState: OrderState) => void;
   onRecall: (orderId: string, toState: OrderState) => void;
 }
@@ -30,15 +34,23 @@ const EMPTY_COPY: Record<ColumnState, string> = {
   ready: 'No orders ready for hand-off yet.',
 };
 
+const EMPTY_ICON: Record<ColumnState, LucideIcon> = {
+  waiting: Inbox,
+  preparing: Flame,
+  ready: BellRing,
+};
+
 export function StationColumn({
   state,
   label,
   tickets,
   now,
   pendingOrderId,
+  newTicketIds,
   onBump,
   onRecall,
 }: StationColumnProps) {
+  const EmptyIcon = EMPTY_ICON[state];
   return (
     <section className="kds-column" data-state={state}>
       <header className="kds-column-head">
@@ -47,7 +59,10 @@ export function StationColumn({
       </header>
       <div className="kds-column-scroll">
         {tickets.length === 0 ? (
-          <div className="kds-empty">{EMPTY_COPY[state]}</div>
+          <div className="kds-empty">
+            <EmptyIcon className="kds-empty-icon" size={26} strokeWidth={1.5} />
+            {EMPTY_COPY[state]}
+          </div>
         ) : (
           tickets.map((ticket) => (
             <TicketCard
@@ -56,6 +71,7 @@ export function StationColumn({
               now={now}
               column={state}
               busy={pendingOrderId === ticket.id}
+              isNew={ticket.id ? newTicketIds.has(ticket.id) : false}
               onBump={onBump}
               onRecall={onRecall}
             />

@@ -11,11 +11,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { UtensilsCrossed } from 'lucide-react';
 
 import type { MenuCategory, ProductWithModifiers } from '@/lib/services/menu.service';
 import type { Restaurant } from '@/lib/services/restaurant.service';
 import { useCart } from '@/lib/cart/CartProvider';
 import { formatMoney } from '@/lib/cart/pricing';
+import { EmptyState } from '@/components/customer/EmptyState';
 import { ProductModal } from './ProductModal';
 import { CartRail } from './CartRail';
 
@@ -130,7 +132,7 @@ export function Storefront({ restaurant, menu }: StorefrontProps) {
             <h2>{category.name}</h2>
             {category.blurb && <p>{category.blurb}</p>}
             <div className="ov-products">
-              {category.products.map((product) => {
+              {category.products.map((product, index) => {
                 const image =
                   product.product_images.find((img) => img.is_primary)?.url ??
                   product.product_images[0]?.url ??
@@ -140,9 +142,10 @@ export function Storefront({ restaurant, menu }: StorefrontProps) {
                   <button
                     key={product.id}
                     type="button"
-                    className="ov-product"
+                    className="ov-product ov-stagger-in"
                     data-out={out}
                     disabled={out}
+                    style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}
                     onClick={() => !out && setActiveProduct(product)}
                   >
                     <div className="ov-product-body">
@@ -173,7 +176,11 @@ export function Storefront({ restaurant, menu }: StorefrontProps) {
         ))}
 
         {nonEmptyCategories.length === 0 && (
-          <div className="ov-empty">This menu isn’t available right now.</div>
+          <EmptyState
+            icon={UtensilsCrossed}
+            title="Menu unavailable"
+            description="This restaurant's menu isn't available right now. Please check back soon."
+          />
         )}
       </main>
 

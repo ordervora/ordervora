@@ -10,12 +10,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { MapPin } from 'lucide-react';
 
 import type { Restaurant } from '@/lib/services/restaurant.service';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { customerService } from '@/lib/services';
 import { useAuth } from '@/hooks/useAuth';
 import type { CustomerAddress } from '@/lib/services/customer.service';
+import { EmptyState } from '@/components/customer/EmptyState';
+import { SkeletonBlock } from '@/components/customer/Skeleton';
+import { Spinner } from '@/components/Spinner';
 import { AuthPanel } from './AuthPanel';
 
 export interface AddressesClientProps {
@@ -106,13 +110,20 @@ export function AddressesClient({ restaurant }: AddressesClientProps) {
 
       <div className="ov-pad ov-stack">
         {authLoading || loading ? (
-          <div className="ov-empty">Loading…</div>
+          <div className="ov-stack">
+            <SkeletonBlock height={64} style={{ borderRadius: 12 }} />
+            <SkeletonBlock height={64} style={{ borderRadius: 12 }} />
+          </div>
         ) : !user ? (
           <AuthPanel redirectTo={`/${restaurant.slug}/account/addresses`} />
         ) : (
           <>
             {addresses.length === 0 && (
-              <div className="ov-note">No saved addresses yet.</div>
+              <EmptyState
+                icon={MapPin}
+                title="No saved addresses"
+                description="Add an address below to speed up delivery checkout."
+              />
             )}
             {addresses.map((address) => (
               <div className="ov-card ov-row" key={address.id}>
@@ -161,6 +172,7 @@ export function AddressesClient({ restaurant }: AddressesClientProps) {
                 disabled={adding || !line1.trim()}
                 onClick={handleAdd}
               >
+                {adding && <Spinner />}
                 {adding ? 'Saving…' : 'Add address'}
               </button>
             </div>

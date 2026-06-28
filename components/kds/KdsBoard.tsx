@@ -66,7 +66,7 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
     [shiftStarted, prefs.muted, prefs.soundId, prefs.volume],
   );
 
-  const { tickets, loading, error, refetch } = useKdsBoard(
+  const { tickets, loading, error, newTicketIds, refetch } = useKdsBoard(
     restaurantId,
     handleNewTicket,
   );
@@ -158,6 +158,7 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
           tickets={columns.waiting}
           now={now}
           pendingOrderId={actions.pendingOrderId}
+          newTicketIds={newTicketIds}
           onBump={bump}
           onRecall={recall}
         />
@@ -167,6 +168,7 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
           tickets={columns.preparing}
           now={now}
           pendingOrderId={actions.pendingOrderId}
+          newTicketIds={newTicketIds}
           onBump={bump}
           onRecall={recall}
         />
@@ -176,6 +178,7 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
           tickets={columns.ready}
           now={now}
           pendingOrderId={actions.pendingOrderId}
+          newTicketIds={newTicketIds}
           onBump={bump}
           onRecall={recall}
         />

@@ -11,11 +11,15 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Tag } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { couponService } from '@/lib/services';
 import { dateOnly } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonTable } from '@/components/dashboard/Skeleton';
+import { Spinner } from '@/components/Spinner';
 import type { Coupon } from '@/lib/services/coupon.service';
 import type { CouponType } from '@/config/constants';
 
@@ -152,9 +156,14 @@ export function CouponsManager() {
         <div className="dash-panel">
           <div className="dash-panel-body" data-flush="true">
             {loading ? (
-              <div className="dash-empty">Loading…</div>
+              <SkeletonTable rows={5} columns={6} />
             ) : coupons.length === 0 ? (
-              <div className="dash-empty">No coupons yet.</div>
+              <EmptyState
+                icon={Tag}
+                title="No coupons yet"
+                description="Create a coupon to give customers a discount or free delivery."
+                action={{ label: 'New coupon', onClick: openCreate }}
+              />
             ) : (
               <table className="dash-table">
                 <thead>
@@ -347,6 +356,7 @@ export function CouponsManager() {
                 disabled={saving}
                 onClick={save}
               >
+                {saving && <Spinner />}
                 {saving ? 'Saving…' : 'Save coupon'}
               </button>
             </div>

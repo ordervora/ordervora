@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ShoppingCart } from 'lucide-react';
 
 import type { Restaurant } from '@/lib/services/restaurant.service';
 import { useCart } from '@/lib/cart/CartProvider';
@@ -25,6 +26,8 @@ import { useCustomer } from '@/hooks/useCustomer';
 import { estimateCart, lineTotal, formatMoney } from '@/lib/cart/pricing';
 import { validateCoupon, submitCheckout } from '@/lib/cart/checkout-client';
 import { clientEnv } from '@/config/env';
+import { EmptyState } from '@/components/customer/EmptyState';
+import { Spinner } from '@/components/Spinner';
 import { AuthPanel, type GuestDetails } from './AuthPanel';
 import { PaymentForm } from './PaymentForm';
 
@@ -157,11 +160,16 @@ export function CheckoutClient({
           </button>
           <h1>Checkout</h1>
         </div>
-        <div className="ov-empty">
-          Your cart is empty.{' '}
-          <button className="ov-link" onClick={() => router.push(`/${restaurant.slug}`)}>
-            Browse the menu
-          </button>
+        <div className="ov-pad">
+          <EmptyState
+            icon={ShoppingCart}
+            title="Your cart is empty"
+            description="Add items from the menu to get started."
+            action={{
+              label: 'Browse the menu',
+              onClick: () => router.push(`/${restaurant.slug}`),
+            }}
+          />
         </div>
       </div>
     );
@@ -439,6 +447,7 @@ export function CheckoutClient({
               disabled={placing || !addressOk}
               onClick={handlePlaceOrder}
             >
+              {placing && <Spinner />}
               {placing
                 ? 'Placing…'
                 : `Place order · ${formatMoney(estimate.total, restaurant.currency)}`}

@@ -13,6 +13,7 @@
 import { useState, useTransition } from 'react';
 
 import { signInWithEmail, signInWithOAuth } from '@/app/auth/actions';
+import { Spinner } from '@/components/Spinner';
 
 export interface GuestDetails {
   name: string;
@@ -91,7 +92,7 @@ export function AuthPanel({
       )}
 
       {mode === 'account' ? (
-        <div className="ov-stack">
+        <div className="ov-stack ov-stagger-in" key="account">
           <div className="ov-field">
             <label htmlFor="auth-email">Email</label>
             <input
@@ -111,6 +112,7 @@ export function AuthPanel({
             disabled={isPending}
             onClick={handleEmail}
           >
+            {isPending && <Spinner />}
             {isPending ? 'Sending…' : 'Email me a sign-in link'}
           </button>
           <button
@@ -121,6 +123,7 @@ export function AuthPanel({
             disabled={isPending}
             onClick={handleGoogle}
           >
+            {isPending && <Spinner />}
             Continue with Google
           </button>
           <p className="ov-note">
@@ -128,7 +131,7 @@ export function AuthPanel({
           </p>
         </div>
       ) : (
-        <div className="ov-stack">
+        <div className="ov-stack ov-stagger-in" key="guest">
           <div className="ov-field">
             <label htmlFor="guest-name">Name</label>
             <input

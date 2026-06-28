@@ -15,6 +15,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { signInWithEmail, signInWithOAuth } from '../actions';
+import { Spinner } from '@/components/Spinner';
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code: 'That sign-in link was incomplete. Request a new one.',
@@ -58,16 +59,8 @@ function SignInForm() {
   const messageIsError = status ? isError : Boolean(initialError);
 
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        display: 'grid',
-        placeItems: 'center',
-        padding: '24px',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 360 }}>
+    <main className="auth-shell">
+      <div className="auth-card" style={{ maxWidth: 360 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
           Sign in to OrderVora
         </h1>
@@ -89,28 +82,10 @@ function SignInForm() {
               setEmail(e.target.value)
             }
             placeholder="you@example.com"
-            style={{
-              padding: '11px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 10,
-              fontSize: 15,
-            }}
+            className="auth-input"
           />
-          <button
-            type="submit"
-            disabled={isPending}
-            style={{
-              padding: '11px 12px',
-              borderRadius: 10,
-              border: 'none',
-              background: '#111827',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 15,
-              cursor: isPending ? 'default' : 'pointer',
-              opacity: isPending ? 0.7 : 1,
-            }}
-          >
+          <button type="submit" className="auth-btn" disabled={isPending}>
+            {isPending && <Spinner />}
             {isPending ? 'Working…' : 'Send sign-in link'}
           </button>
         </form>
@@ -132,19 +107,12 @@ function SignInForm() {
 
         <button
           type="button"
+          className="auth-btn"
+          data-variant="ghost"
           onClick={handleGoogle}
           disabled={isPending}
-          style={{
-            width: '100%',
-            padding: '11px 12px',
-            borderRadius: 10,
-            border: '1px solid #d1d5db',
-            background: '#fff',
-            fontWeight: 600,
-            fontSize: 15,
-            cursor: isPending ? 'default' : 'pointer',
-          }}
         >
+          {isPending && <Spinner />}
           Continue with Google
         </button>
 

@@ -11,11 +11,15 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Layers } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { menuService } from '@/lib/services';
 import { money } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonTable } from '@/components/dashboard/Skeleton';
+import { Spinner } from '@/components/Spinner';
 import type {
   MenuCategory,
   Product,
@@ -119,7 +123,18 @@ export function MenuManager() {
 
       <div className="dash-body">
         {loading ? (
-          <div className="dash-empty">Loading menu…</div>
+          <div className="dash-grid" data-cols="2">
+            <div className="dash-panel">
+              <div className="dash-panel-body" data-flush="true">
+                <SkeletonTable rows={6} columns={4} />
+              </div>
+            </div>
+            <div className="dash-panel" style={{ alignSelf: 'flex-start' }}>
+              <div className="dash-panel-body">
+                <SkeletonTable rows={3} columns={1} />
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="dash-grid" data-cols="2">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -188,7 +203,11 @@ export function MenuManager() {
               </div>
               <div className="dash-panel-body">
                 {uniqueGroups.length === 0 ? (
-                  <div className="dash-empty">No modifier groups.</div>
+                  <EmptyState
+                    icon={Layers}
+                    title="No modifier groups"
+                    description="Modifier groups created for your products will appear here."
+                  />
                 ) : (
                   <div className="dash-list">
                     {uniqueGroups.map((group) => (
@@ -301,6 +320,7 @@ export function MenuManager() {
                 disabled={saving}
                 onClick={saveEdit}
               >
+                {saving && <Spinner />}
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </div>

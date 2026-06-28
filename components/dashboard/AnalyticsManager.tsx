@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { BarChart3 } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
@@ -23,6 +24,8 @@ import {
   downloadCsv,
   printHtml,
 } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonBlock, SkeletonKpis } from '@/components/dashboard/Skeleton';
 
 interface DayPoint {
   date: string;
@@ -212,6 +215,9 @@ export function AnalyticsManager() {
           </div>
         </div>
 
+        {loading ? (
+          <SkeletonKpis count={3} />
+        ) : (
         <div className="dash-kpis">
           <div className="dash-kpi" data-tone="green">
             <div className="dash-kpi-label">Revenue</div>
@@ -229,6 +235,7 @@ export function AnalyticsManager() {
             <div className="dash-kpi-sub">last {days} days</div>
           </div>
         </div>
+        )}
 
         <div className="dash-panel" style={{ marginBottom: 16 }}>
           <div className="dash-panel-head">
@@ -236,9 +243,13 @@ export function AnalyticsManager() {
           </div>
           <div className="dash-panel-body">
             {loading ? (
-              <div className="dash-empty">Loading…</div>
+              <SkeletonBlock height={120} />
             ) : series.length === 0 ? (
-              <div className="dash-empty">No sales in this period.</div>
+              <EmptyState
+                icon={BarChart3}
+                title="No sales in this period"
+                description="Try a wider date range, or check back once orders come in."
+              />
             ) : (
               <div className="dash-chart">
                 {series.map((d) => (
@@ -261,8 +272,10 @@ export function AnalyticsManager() {
               <span className="dash-panel-title">Top products</span>
             </div>
             <div className="dash-panel-body">
-              {products.length === 0 ? (
-                <div className="dash-empty">No data.</div>
+              {loading ? (
+                <SkeletonBlock height={120} />
+              ) : products.length === 0 ? (
+                <EmptyState icon={BarChart3} title="No data" />
               ) : (
                 <div className="dash-bars">
                   {products.map((p) => (
@@ -289,8 +302,10 @@ export function AnalyticsManager() {
               <span className="dash-panel-title">Top customers</span>
             </div>
             <div className="dash-panel-body" data-flush="true">
-              {customers.length === 0 ? (
-                <div className="dash-empty">No data.</div>
+              {loading ? (
+                <SkeletonBlock height={120} />
+              ) : customers.length === 0 ? (
+                <EmptyState icon={BarChart3} title="No data" />
               ) : (
                 <table className="dash-table">
                   <tbody>

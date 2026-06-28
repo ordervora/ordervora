@@ -18,6 +18,7 @@ import type { Restaurant } from '@/lib/services/restaurant.service';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomer } from '@/hooks/useCustomer';
 import { resolveTier, type LoyaltyTier } from '@/lib/services/loyalty.service';
+import { SkeletonBlock } from '@/components/customer/Skeleton';
 import { AuthPanel } from './AuthPanel';
 
 export interface AccountClientProps {
@@ -81,7 +82,11 @@ export function AccountClient({ restaurant }: AccountClientProps) {
 
       <div className="ov-pad ov-stack">
         {authLoading || loading ? (
-          <div className="ov-empty">Loading…</div>
+          <div className="ov-stack">
+            <SkeletonBlock height={92} style={{ borderRadius: 14 }} />
+            <SkeletonBlock height={52} style={{ borderRadius: 12 }} />
+            <SkeletonBlock height={52} style={{ borderRadius: 12 }} />
+          </div>
         ) : !user ? (
           <AuthPanel redirectTo={`/${restaurant.slug}/account`} />
         ) : (
