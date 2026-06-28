@@ -43,6 +43,17 @@ export function channelName(parts: (string | number)[]): string {
 }
 
 /**
+ * Counter appended to every channel topic. `client.channel(topic)` returns the
+ * existing channel object when the topic string already exists — including one
+ * that's already `subscribe()`d — so two independent subscribers that happen
+ * to compute the same name (e.g. two components subscribing to the same
+ * restaurant's orders) would collide on the second `.on()` call. Each
+ * `subscribeToTable` call manages its own lifecycle, so it always needs its
+ * own channel regardless of what name the caller passed in.
+ */
+let channelSequence = 0;
+
+/**
  * Subscribes to postgres changes on a table, optionally filtered, and routes
  * normalized changes to `onChange`. Returns an unsubscribe function.
  *
@@ -61,7 +72,7 @@ export function subscribeToTable<T extends Record<string, unknown>>(
   const { name, table, filter, event = '*' } = options;
 
   const channel = client
-    .channel(name)
+    .channel(`${name}:${++channelSequence}`)
     .on(
       // The string literal 'postgres_changes' is required by the SDK overload.
       'postgres_changes',
