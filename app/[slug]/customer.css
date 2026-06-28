@@ -456,7 +456,15 @@
   transition: background var(--duration-base) var(--ease), border-color var(--duration-base) var(--ease);
 }
 .ov-step[data-done='true'] .ov-step-dot { background: var(--fresh); border-color: var(--fresh); }
-.ov-step[data-current='true'] .ov-step-dot { border-color: var(--brand); background: var(--brand); }
+.ov-step[data-current='true'] .ov-step-dot {
+  border-color: var(--brand); background: var(--brand);
+  animation: ov-pulse-ring 1.8s var(--ease) infinite;
+}
+@keyframes ov-pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 45%, transparent); }
+  70% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--brand) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent); }
+}
 .ov-step-line { width: 2px; flex: 1; background: var(--line); min-height: 22px; transition: background var(--duration-base) var(--ease); }
 .ov-step[data-done='true'] .ov-step-line { background: var(--fresh); }
 .ov-step-body { padding-bottom: 16px; }
@@ -484,5 +492,6 @@
   .ov-error,
   .ov-success,
   .ov-skeleton,
-  .ov-stagger-in { animation: none; }
+  .ov-stagger-in,
+  .ov-step[data-current='true'] .ov-step-dot { animation: none; }
 }

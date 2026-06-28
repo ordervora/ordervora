@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Package } from 'lucide-react';
 
 import type { Restaurant } from '@/lib/services/restaurant.service';
 import { getBrowserClient } from '@/lib/supabase/client';
@@ -23,6 +24,9 @@ import { useCart } from '@/lib/cart/CartProvider';
 import type { Order, OrderDetail } from '@/lib/services/order.service';
 import { TERMINAL_ORDER_STATES, type OrderState } from '@/config/constants';
 import { formatClock } from '@/lib/utils/time';
+import { EmptyState } from '@/components/customer/EmptyState';
+import { SkeletonOrder } from '@/components/customer/Skeleton';
+import { Spinner } from '@/components/Spinner';
 import { AuthPanel } from './AuthPanel';
 
 export interface OrderHistoryClientProps {
@@ -130,16 +134,19 @@ export function OrderHistoryClient({ restaurant }: OrderHistoryClientProps) {
 
       <div className="ov-pad ov-stack">
         {authLoading || loading ? (
-          <div className="ov-empty">Loading…</div>
+          <div className="ov-stack">
+            <SkeletonOrder />
+            <SkeletonOrder />
+          </div>
         ) : !user ? (
           <AuthPanel redirectTo={`/${restaurant.slug}/account/orders`} />
         ) : orders.length === 0 ? (
-          <div className="ov-empty">
-            No orders yet.{' '}
-            <Link className="ov-link" href={`/${restaurant.slug}`}>
-              Start one
-            </Link>
-          </div>
+          <EmptyState
+            icon={Package}
+            title="No orders yet"
+            description="Your order history will show up here once you place your first order."
+            action={{ label: 'Browse the menu', onClick: () => router.push(`/${restaurant.slug}`) }}
+          />
         ) : (
           orders.map((order) => (
             <div className="ov-order" key={order.id}>
@@ -179,6 +186,7 @@ export function OrderHistoryClient({ restaurant }: OrderHistoryClientProps) {
                   disabled={reordering === order.id}
                   onClick={() => handleReorder(order.id)}
                 >
+                  {reordering === order.id && <Spinner />}
                   {reordering === order.id ? 'Adding…' : 'Reorder'}
                 </button>
               </div>
