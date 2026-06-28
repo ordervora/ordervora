@@ -100,12 +100,44 @@ export const NOTIFICATION_CHANNELS = ['sound', 'push', 'sms', 'email', 'in_app']
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 // ----------------------------------------------------------------------------
+// Restaurant type (SQL: restaurant_type CHECK constraint, migration 0005)
+// ----------------------------------------------------------------------------
+export const RESTAURANT_TYPES = [
+  { value: 'fast_food', label: 'Fast food' },
+  { value: 'cafe', label: 'Cafe' },
+  { value: 'fine_dining', label: 'Fine dining' },
+  { value: 'pizza', label: 'Pizza' },
+  { value: 'coffee', label: 'Coffee shop' },
+  { value: 'asian', label: 'Asian cuisine' },
+  { value: 'bakery', label: 'Bakery' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'grocery', label: 'Grocery' },
+  { value: 'other', label: 'Other' },
+] as const;
+export type RestaurantType = (typeof RESTAURANT_TYPES)[number]['value'];
+
+// ----------------------------------------------------------------------------
+// Setup wizard steps (Module A) — stored on `restaurants.onboarding_step`.
+// ----------------------------------------------------------------------------
+export const SETUP_STEPS = [
+  'profile',
+  'hours',
+  'fulfillment',
+  'kitchen',
+  'policies',
+  'review',
+] as const;
+export type SetupStep = (typeof SETUP_STEPS)[number];
+export const SETUP_DONE = 'done' as const;
+
+// ----------------------------------------------------------------------------
 // Route prefixes for the four surfaces (used by middleware).
 // ----------------------------------------------------------------------------
 export const ROUTES = {
   signIn: '/auth/sign-in',
   authCallback: '/auth/callback',
   onboarding: '/onboarding',
+  onboardingSetup: '/onboarding/setup',
   dashboard: '/dashboard',
   kds: '/kds',
   admin: '/admin',

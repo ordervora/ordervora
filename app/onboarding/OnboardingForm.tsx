@@ -5,8 +5,9 @@
  *
  * Collects a restaurant name + URL slug (auto-derived from the name until the
  * user edits it directly) and creates the restaurant via the `createRestaurant`
- * server action, seating the caller as owner. On success, sends them straight
- * into the dashboard for the new restaurant.
+ * server action, seating the caller as owner. On success, sends them into the
+ * setup wizard to finish configuring the new restaurant before it can accept
+ * orders.
  */
 
 import { useState, useTransition } from 'react';
@@ -52,7 +53,7 @@ export function OnboardingForm() {
     startTransition(async () => {
       const result = await createRestaurant({ name, slug, email, phone });
       if (result.ok && result.restaurantId) {
-        router.push(`${ROUTES.dashboard}?restaurant=${result.restaurantId}`);
+        router.push(`${ROUTES.onboardingSetup}?restaurant=${result.restaurantId}`);
         return;
       }
       setMessage(result.message);

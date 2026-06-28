@@ -62,6 +62,17 @@ export type NotificationChannelEnum = 'sound' | 'push' | 'sms' | 'email' | 'in_a
 export type AddressLabelEnum = 'home' | 'work' | 'other';
 export type ReviewSourceEnum = 'website' | 'google' | 'app';
 export type EventActorEnum = 'customer' | 'staff' | 'system' | 'payment_webhook';
+export type RestaurantTypeEnum =
+  | 'fast_food'
+  | 'cafe'
+  | 'fine_dining'
+  | 'pizza'
+  | 'coffee'
+  | 'asian'
+  | 'bakery'
+  | 'bar'
+  | 'grocery'
+  | 'other';
 
 export interface Database {
   public: {
@@ -116,6 +127,9 @@ export interface Database {
           currency: string;
           stripe_account_id: string | null;
           is_active: boolean;
+          restaurant_type: RestaurantTypeEnum;
+          holiday_hours: Json;
+          onboarding_step: string;
           created_at: string;
           updated_at: string;
         };
@@ -138,6 +152,9 @@ export interface Database {
           currency?: string;
           stripe_account_id?: string | null;
           is_active?: boolean;
+          restaurant_type?: RestaurantTypeEnum;
+          holiday_hours?: Json;
+          onboarding_step?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -971,6 +988,10 @@ export interface Database {
           notification_config: Json;
           security_config: Json;
           loyalty_config: Json;
+          fulfillment_config: Json;
+          tip_config: Json;
+          kitchen_config: Json;
+          policies_config: Json;
           updated_at: string;
         };
         Insert: {
@@ -980,6 +1001,10 @@ export interface Database {
           notification_config?: Json;
           security_config?: Json;
           loyalty_config?: Json;
+          fulfillment_config?: Json;
+          tip_config?: Json;
+          kitchen_config?: Json;
+          policies_config?: Json;
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['restaurant_settings']['Insert']>;
