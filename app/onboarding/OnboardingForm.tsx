@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 
 import { createRestaurant } from './actions';
 import { ROUTES } from '@/config/constants';
+import { Spinner } from '@/components/Spinner';
 
 function slugify(value: string): string {
   return value
@@ -60,16 +61,8 @@ export function OnboardingForm() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        display: 'grid',
-        placeItems: 'center',
-        padding: '24px',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 400 }}>
+    <main className="auth-shell">
+      <div className="auth-card" style={{ maxWidth: 400 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
           Create your restaurant
         </h1>
@@ -89,7 +82,7 @@ export function OnboardingForm() {
             value={name}
             onChange={handleNameChange}
             placeholder="Demo Deli"
-            style={inputStyle}
+            className="auth-input"
           />
 
           <label htmlFor="slug" style={{ fontSize: 13, fontWeight: 600 }}>
@@ -105,7 +98,7 @@ export function OnboardingForm() {
             pattern="[a-z0-9]+(-[a-z0-9]+)*"
             minLength={3}
             maxLength={60}
-            style={inputStyle}
+            className="auth-input"
           />
           <p style={{ fontSize: 12, color: '#9ca3af', marginTop: -8 }}>
             Customers will order at /{slug || 'your-slug'}
@@ -120,7 +113,7 @@ export function OnboardingForm() {
             value={email}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             placeholder="hello@demodeli.com"
-            style={inputStyle}
+            className="auth-input"
           />
 
           <label htmlFor="phone" style={{ fontSize: 13, fontWeight: 600 }}>
@@ -132,25 +125,16 @@ export function OnboardingForm() {
             value={phone}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
             placeholder="(555) 555-0100"
-            style={inputStyle}
+            className="auth-input"
           />
 
           <button
             type="submit"
+            className="auth-btn"
             disabled={isPending}
-            style={{
-              marginTop: 8,
-              padding: '11px 12px',
-              borderRadius: 10,
-              border: 'none',
-              background: '#111827',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 15,
-              cursor: isPending ? 'default' : 'pointer',
-              opacity: isPending ? 0.7 : 1,
-            }}
+            style={{ marginTop: 8 }}
           >
+            {isPending && <Spinner />}
             {isPending ? 'Creating…' : 'Create restaurant'}
           </button>
         </form>
@@ -171,10 +155,3 @@ export function OnboardingForm() {
     </main>
   );
 }
-
-const inputStyle = {
-  padding: '11px 12px',
-  border: '1px solid #d1d5db',
-  borderRadius: 10,
-  fontSize: 15,
-} as const;
