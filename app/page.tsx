@@ -1,5 +1,8 @@
 import Link from 'next/link';
 
+import { getAuthContext, canAccessDashboard } from '@/lib/rbac';
+import { ROUTES } from '@/config/constants';
+
 /**
  * Homepage.
  *
@@ -7,8 +10,29 @@ import Link from 'next/link';
  * specific restaurant at /[slug], so this page explains the product and points
  * visitors to a restaurant link. It intentionally stays light — individual
  * storefronts carry each restaurant's branding.
+ *
+ * The "run a restaurant" CTA adapts to auth state: signed out goes to sign-in
+ * (then onboarding), signed in with no restaurant yet goes to onboarding,
+ * signed in with one goes straight to the dashboard.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const ctx = await getAuthContext();
+  const hasDashboardAccess =
+    ctx !== null &&
+    (ctx.isPlatformAdmin ||
+      ctx.memberships.some((m) => canAccessDashboard(ctx, m.restaurantId)));
+
+  const ctaHref = !ctx
+    ? `${ROUTES.signIn}?redirect=${ROUTES.onboarding}`
+    : hasDashboardAccess
+      ? ROUTES.dashboard
+      : ROUTES.onboarding;
+  const ctaLabel = !ctx
+    ? 'Sign in to get started'
+    : hasDashboardAccess
+      ? 'Open your dashboard'
+      : 'Create your restaurant';
+
   return (
     <main
       style={{
@@ -32,8 +56,8 @@ export default function HomePage() {
         </p>
         <p style={{ fontSize: 14, color: '#6f655c', marginTop: 18 }}>
           Run a restaurant?{' '}
-          <Link href="/dashboard" style={{ color: '#c8842e', fontWeight: 700 }}>
-            Open your dashboard
+          <Link href={ctaHref} style={{ color: '#c8842e', fontWeight: 700 }}>
+            {ctaLabel}
           </Link>
         </p>
       </div>

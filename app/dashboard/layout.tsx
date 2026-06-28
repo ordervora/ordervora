@@ -36,7 +36,7 @@ export default async function DashboardLayout({
     canAccessDashboard(ctx, m.restaurantId),
   );
   if (accessible.length === 0 && !ctx.isPlatformAdmin) {
-    redirect('/');
+    redirect(ROUTES.onboarding);
   }
 
   const requested = (await searchParams)?.restaurant;

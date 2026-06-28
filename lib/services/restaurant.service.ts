@@ -109,6 +109,37 @@ export async function updateRestaurant(
 }
 
 /**
+ * Creates a new restaurant and seats the caller as its first owner, via the
+ * `create_restaurant_with_owner` RPC (migration 0003). This is the only path
+ * that can insert into `restaurants` for a non-platform-admin user — RLS
+ * grants INSERT there to platform_admin only, and the SECURITY DEFINER
+ * function is the audited gate around that.
+ */
+export async function createRestaurantWithOwner(
+  client: Client,
+  input: {
+    slug: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    timezone?: string | null;
+  },
+): Promise<ServiceResult<{ id: string; slug: string }>> {
+  const { data, error } = await client.rpc('create_restaurant_with_owner', {
+    p_slug: input.slug,
+    p_name: input.name,
+    p_email: input.email ?? null,
+    p_phone: input.phone ?? null,
+    p_timezone: input.timezone ?? null,
+  });
+
+  if (error) return fail(error.message, toServiceError(error).code);
+  const row = data?.[0];
+  if (!row) return fail('Restaurant creation returned no data.');
+  return ok({ id: row.id, slug: row.slug });
+}
+
+/**
  * Updates a restaurant's settings row (1:1). Upserts on restaurant_id so a
  * restaurant without a settings row yet still gets one. Used by the dashboard
  * Settings section for sound, notification, loyalty, and other config blocks.

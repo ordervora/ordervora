@@ -105,6 +105,7 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const ROUTES = {
   signIn: '/auth/sign-in',
   authCallback: '/auth/callback',
+  onboarding: '/onboarding',
   dashboard: '/dashboard',
   kds: '/kds',
   admin: '/admin',
