@@ -173,7 +173,12 @@
   font-size: 14px;
   text-align: center;
   padding: 32px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
+.kds-empty-icon { color: var(--line); }
 
 /* ---- ticket ----------------------------------------------------------- */
 .kds-ticket {
@@ -188,6 +193,25 @@
 
 .kds-ticket[data-vip='true'] {
   border-color: color-mix(in srgb, var(--vip) 55%, var(--line));
+}
+
+.kds-ticket[data-new='true'] {
+  animation: kds-ticket-arrive 1.1s ease-out;
+}
+@keyframes kds-ticket-arrive {
+  0% {
+    transform: translateY(-8px);
+    opacity: 0;
+    box-shadow: 0 0 0 2px var(--waiting);
+  }
+  35% {
+    transform: translateY(0);
+    opacity: 1;
+    box-shadow: 0 0 0 2px var(--waiting);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 /* the signature heat bar: left edge fills with age */
@@ -361,11 +385,11 @@
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  transition: transform 0.05s ease, background 0.12s ease;
+  transition: transform 0.06s ease, background 0.12s ease, filter 0.12s ease;
 }
 
-.kds-btn:active { transform: translateY(1px); }
-.kds-btn:disabled { opacity: 0.5; cursor: default; }
+.kds-btn:active { transform: scale(0.96); filter: brightness(0.92); }
+.kds-btn:disabled { opacity: 0.5; cursor: default; transform: none; filter: none; }
 
 .kds-btn[data-variant='primary'] {
   border-color: transparent;
@@ -497,4 +521,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .kds-pill[data-live='true']::before { animation: none; }
+  .kds-ticket[data-new='true'] { animation: none; }
 }

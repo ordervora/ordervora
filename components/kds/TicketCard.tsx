@@ -30,6 +30,8 @@ export interface TicketCardProps {
   column: 'waiting' | 'preparing' | 'ready';
   /** Whether an action on this order is in flight. */
   busy: boolean;
+  /** Whether this ticket just arrived, for the brief arrival highlight. */
+  isNew?: boolean;
   onBump: (orderId: string, toState: OrderState) => void;
   onRecall: (orderId: string, toState: OrderState) => void;
 }
@@ -39,6 +41,7 @@ export function TicketCard({
   now,
   column,
   busy,
+  isNew = false,
   onBump,
   onRecall,
 }: TicketCardProps) {
@@ -86,7 +89,7 @@ export function TicketCard({
   }, [column]);
 
   return (
-    <article className="kds-ticket" data-vip={isVip}>
+    <article className="kds-ticket" data-vip={isVip} data-new={isNew}>
       <span
         className="kds-heat"
         style={{ transform: `scaleY(${heatScale})` }}
