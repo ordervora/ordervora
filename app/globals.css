@@ -9,6 +9,12 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Clamp the layout viewport to the device width. Without this, any
+     descendant that overflows (flex/grid auto min-width traps, etc.)
+     widens the whole page, and mobile Safari responds by zooming out
+     to fit it rather than scrolling — the page never looks "full". */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 :root {
