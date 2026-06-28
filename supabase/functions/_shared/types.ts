@@ -126,6 +126,8 @@ export interface Database {
           tax_rate: number;
           currency: string;
           stripe_account_id: string | null;
+          stripe_charges_enabled: boolean;
+          stripe_details_submitted: boolean;
           is_active: boolean;
           restaurant_type: RestaurantTypeEnum;
           holiday_hours: Json;
@@ -151,6 +153,8 @@ export interface Database {
           tax_rate?: number;
           currency?: string;
           stripe_account_id?: string | null;
+          stripe_charges_enabled?: boolean;
+          stripe_details_submitted?: boolean;
           is_active?: boolean;
           restaurant_type?: RestaurantTypeEnum;
           holiday_hours?: Json;

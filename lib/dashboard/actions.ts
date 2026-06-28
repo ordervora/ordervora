@@ -74,3 +74,44 @@ export async function advanceOrder(
   }
   return { ok: true, error: null };
 }
+
+export interface ConnectStripeResult {
+  ok: boolean;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * Starts (or resumes) Stripe Connect onboarding for a restaurant. Returns a
+ * Stripe-hosted URL the caller should redirect the browser to; Stripe sends
+ * the owner back to `returnUrl`/`refreshUrl` when they finish or bail out.
+ */
+export async function connectStripe(
+  restaurantId: string,
+  returnUrl: string,
+  refreshUrl: string,
+): Promise<ConnectStripeResult> {
+  const response = await fetch(fnUrl('stripe-connect'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: await authHeader(),
+    },
+    body: JSON.stringify({
+      restaurant_id: restaurantId,
+      return_url: returnUrl,
+      refresh_url: refreshUrl,
+    }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | null;
+    return {
+      ok: false,
+      error: body?.error?.message ?? 'Could not start Stripe onboarding.',
+    };
+  }
+  const data = (await response.json()) as { url: string };
+  return { ok: true, url: data.url };
+}

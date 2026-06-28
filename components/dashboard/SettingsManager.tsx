@@ -15,6 +15,8 @@ import { useEffect, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { restaurantService } from '@/lib/services';
+import { connectStripe } from '@/lib/dashboard/actions';
+import { clientEnv } from '@/config/env';
 import { SOUND_OPTIONS } from '@/lib/sound';
 import { Spinner } from '@/components/Spinner';
 import type { RestaurantSettings } from '@/lib/services/restaurant.service';
@@ -30,7 +32,7 @@ const DAYS = [
 ] as const;
 
 export function SettingsManager() {
-  const { restaurant } = useDashboard();
+  const { restaurant, role } = useDashboard();
 
   const [name, setName] = useState(restaurant.name);
   const [logoUrl, setLogoUrl] = useState(restaurant.logo_url ?? '');
@@ -49,6 +51,8 @@ export function SettingsManager() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [connectingStripe, setConnectingStripe] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
 
   useEffect(() => {
     const client = getBrowserClient();
@@ -112,7 +116,25 @@ export function SettingsManager() {
     setMessage(result.error ? result.error.message : 'Settings saved.');
   }
 
-  const stripeConnected = Boolean(restaurant.stripe_account_id);
+  const stripeStarted = Boolean(restaurant.stripe_account_id);
+  const stripeReady = restaurant.stripe_charges_enabled;
+
+  async function handleConnectStripe() {
+    setConnectingStripe(true);
+    setStripeError(null);
+    const path = `/dashboard/settings?restaurant=${restaurant.id}`;
+    const result = await connectStripe(
+      restaurant.id,
+      `${clientEnv.siteUrl}${path}`,
+      `${clientEnv.siteUrl}${path}`,
+    );
+    if (result.ok && result.url) {
+      window.location.href = result.url;
+      return;
+    }
+    setConnectingStripe(false);
+    setStripeError(result.error ?? 'Could not start Stripe onboarding.');
+  }
 
   return (
     <>
@@ -289,22 +311,60 @@ export function SettingsManager() {
               <span className="dash-panel-title">Payments · Stripe Connect</span>
               <span
                 className="dash-badge"
-                data-tone={stripeConnected ? 'ready' : 'dead'}
+                data-tone={stripeReady ? 'ready' : stripeStarted ? 'active' : 'dead'}
               >
-                {stripeConnected ? 'Connected' : 'Not connected'}
+                {stripeReady
+                  ? 'Connected'
+                  : stripeStarted
+                    ? 'Onboarding incomplete'
+                    : 'Not connected'}
               </span>
             </div>
             <div className="dash-panel-body">
-              {stripeConnected ? (
+              {stripeReady ? (
                 <p className="dash-kv-label" style={{ fontSize: 13 }}>
                   This restaurant is connected to Stripe and can accept payments.
                   Account: <code>{restaurant.stripe_account_id}</code>
                 </p>
+              ) : stripeStarted ? (
+                <p className="dash-kv-label" style={{ fontSize: 13 }}>
+                  Stripe onboarding was started but hasn&rsquo;t been finished —
+                  checkout stays disabled until it is. Pick up where you left
+                  off below.
+                </p>
               ) : (
                 <p className="dash-kv-label" style={{ fontSize: 13 }}>
                   Connect a Stripe account to start accepting online payments.
-                  Onboarding is completed through Stripe; once connected, the
-                  account id appears here and checkout is enabled.
+                  Onboarding is completed through Stripe; once finished,
+                  checkout is enabled automatically.
+                </p>
+              )}
+
+              {role === 'owner' ? (
+                <>
+                  <button
+                    className="dash-btn"
+                    data-variant="primary"
+                    disabled={connectingStripe}
+                    onClick={handleConnectStripe}
+                    style={{ marginTop: 12 }}
+                  >
+                    {connectingStripe && <Spinner />}
+                    {connectingStripe
+                      ? 'Redirecting…'
+                      : stripeStarted
+                        ? 'Finish Stripe onboarding'
+                        : 'Connect with Stripe'}
+                  </button>
+                  {stripeError && (
+                    <p className="dash-error" style={{ marginTop: 8 }}>
+                      {stripeError}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="dash-kv-label" style={{ fontSize: 13, marginTop: 12 }}>
+                  Only the restaurant owner can manage Stripe Connect.
                 </p>
               )}
             </div>

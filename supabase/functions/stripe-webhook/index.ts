@@ -8,6 +8,10 @@
  *       award loyalty points, notify, audit.
  *   payment_intent.payment_failed
  *     → payment row to 'failed', order → 'cancelled', audit.
+ *   account.updated
+ *     → reconciles stripe_charges_enabled/stripe_details_submitted on the
+ *       restaurant whose Connect account this is, so the dashboard and the
+ *       checkout gate know onboarding actually finished (not just started).
  *
  * All writes use the service client because this runs as the system, not a
  * user. The order-acceptance UPDATE is what the KDS subscribes to, so the
@@ -175,6 +179,40 @@ async function handleFailed(
   });
 }
 
+async function handleAccountUpdated(
+  service: Client,
+  account: Stripe.Account,
+): Promise<void> {
+  const { data: restaurant } = await service
+    .from('restaurants')
+    .select('id')
+    .eq('stripe_account_id', account.id)
+    .maybeSingle();
+
+  if (!restaurant) return;
+
+  await service
+    .from('restaurants')
+    .update({
+      stripe_charges_enabled: Boolean(account.charges_enabled),
+      stripe_details_submitted: Boolean(account.details_submitted),
+    })
+    .eq('id', restaurant.id);
+
+  await writeAudit(service, {
+    restaurantId: restaurant.id,
+    actorId: null,
+    action: 'stripe.account_updated',
+    entityType: 'restaurant',
+    entityId: restaurant.id,
+    metadata: {
+      stripe_account_id: account.id,
+      charges_enabled: account.charges_enabled,
+      details_submitted: account.details_submitted,
+    },
+  });
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== 'POST') return errorResponse('Method not allowed.', 405);
 
@@ -205,6 +243,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         break;
       case 'payment_intent.payment_failed':
         await handleFailed(service, event.data.object as Stripe.PaymentIntent);
+        break;
+      case 'account.updated':
+        await handleAccountUpdated(service, event.data.object as Stripe.Account);
         break;
       default:
         // Unhandled event types are acknowledged so Stripe stops retrying.

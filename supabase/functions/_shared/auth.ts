@@ -48,6 +48,16 @@ export async function isManager(
   return role !== null && MANAGER_ROLES.includes(role);
 }
 
+/** True if the caller is the owner at the restaurant (billing/settings tier). */
+export async function isOwner(
+  user: Client,
+  restaurantId: string,
+  userId: string,
+): Promise<boolean> {
+  const role = await getCallerRole(user, restaurantId, userId);
+  return role === 'owner';
+}
+
 /** True if the caller is any active staff member at the restaurant. */
 export async function isStaff(
   user: Client,
