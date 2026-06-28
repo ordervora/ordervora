@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Users } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
@@ -19,6 +20,8 @@ import {
   loyaltyService,
 } from '@/lib/services';
 import { money, count, dateOnly } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonTable } from '@/components/dashboard/Skeleton';
 import type { Customer, CustomerAddress } from '@/lib/services/customer.service';
 import type { Order } from '@/lib/services/order.service';
 
@@ -115,9 +118,17 @@ export function CustomersManager() {
         <div className="dash-panel">
           <div className="dash-panel-body" data-flush="true">
             {loading ? (
-              <div className="dash-empty">Loading…</div>
+              <SkeletonTable rows={6} columns={6} />
             ) : filtered.length === 0 ? (
-              <div className="dash-empty">No customers found.</div>
+              <EmptyState
+                icon={Users}
+                title="No customers found"
+                description={
+                  query || vipOnly
+                    ? 'Try a different search or clear the VIP filter.'
+                    : 'Customers will appear here once they place their first order.'
+                }
+              />
             ) : (
               <table className="dash-table">
                 <thead>

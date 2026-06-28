@@ -10,12 +10,15 @@
  */
 
 import { useEffect, useState } from 'react';
+import { UserPlus, History } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { staffService } from '@/lib/services';
 import { permissionsForRole } from '@/lib/rbac/permissions';
 import { dateTime } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonTable } from '@/components/dashboard/Skeleton';
 import type { StaffWithProfile } from '@/lib/services/staff.service';
 import { STAFF_ROLES, type StaffRole } from '@/config/constants';
 
@@ -100,9 +103,13 @@ export function StaffManager() {
             </div>
             <div className="dash-panel-body" data-flush="true">
               {loading ? (
-                <div className="dash-empty">Loading…</div>
+                <SkeletonTable rows={5} columns={4} />
               ) : staff.length === 0 ? (
-                <div className="dash-empty">No staff yet.</div>
+                <EmptyState
+                  icon={UserPlus}
+                  title="No staff yet"
+                  description="Invite team members to give them access to this dashboard."
+                />
               ) : (
                 <table className="dash-table">
                   <thead>
@@ -244,7 +251,7 @@ export function StaffManager() {
               </div>
               <div className="dash-panel-body">
                 {activity.length === 0 ? (
-                  <div className="dash-empty">No activity recorded.</div>
+                  <EmptyState icon={History} title="No activity recorded" />
                 ) : (
                   <div className="dash-feed">
                     {activity.map((a) => (

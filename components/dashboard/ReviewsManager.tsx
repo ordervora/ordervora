@@ -9,12 +9,16 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Star } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { reviewService } from '@/lib/services';
 import { useAuth } from '@/hooks/useAuth';
 import { dateOnly } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonBlock } from '@/components/dashboard/Skeleton';
+import { Spinner } from '@/components/Spinner';
 import type { Review } from '@/lib/services/review.service';
 
 export function ReviewsManager() {
@@ -123,9 +127,13 @@ export function ReviewsManager() {
           </div>
           <div className="dash-panel-body">
             {loading ? (
-              <div className="dash-empty">Loading…</div>
+              <SkeletonBlock height={160} />
             ) : reviews.length === 0 ? (
-              <div className="dash-empty">No reviews yet.</div>
+              <EmptyState
+                icon={Star}
+                title="No reviews yet"
+                description="Customer reviews will appear here once they start coming in."
+              />
             ) : (
               <div className="dash-list">
                 {reviews.map((review) => (
@@ -199,6 +207,7 @@ export function ReviewsManager() {
                           disabled={savingId === review.id}
                           onClick={() => void submitReply(review.id)}
                         >
+                          {savingId === review.id && <Spinner />}
                           {savingId === review.id ? 'Posting…' : 'Reply'}
                         </button>
                       </div>

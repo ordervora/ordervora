@@ -16,6 +16,7 @@ import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { restaurantService } from '@/lib/services';
 import { SOUND_OPTIONS } from '@/lib/sound';
+import { Spinner } from '@/components/Spinner';
 import type { RestaurantSettings } from '@/lib/services/restaurant.service';
 
 const DAYS = [
@@ -190,6 +191,7 @@ export function SettingsManager() {
                 disabled={savingProfile}
                 onClick={saveProfile}
               >
+                {savingProfile && <Spinner />}
                 {savingProfile ? 'Saving…' : 'Save profile'}
               </button>
             </div>
@@ -275,6 +277,7 @@ export function SettingsManager() {
                 disabled={savingConfig}
                 onClick={saveConfig}
               >
+                {savingConfig && <Spinner />}
                 {savingConfig ? 'Saving…' : 'Save settings'}
               </button>
             </div>

@@ -11,6 +11,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  UtensilsCrossed,
+  Users,
+  Tag,
+  Star,
+  BarChart3,
+  UserCog,
+  Settings,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { useDashboard } from '@/lib/dashboard/context';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
@@ -20,19 +32,20 @@ import { roleHasPermission } from '@/lib/rbac/permissions';
 interface NavItem {
   href: string;
   label: string;
+  icon: LucideIcon;
   permission: Parameters<typeof roleHasPermission>[1] | null;
 }
 
 const NAV: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', permission: 'reports.view' },
-  { href: '/dashboard/orders', label: 'Orders', permission: 'orders.view' },
-  { href: '/dashboard/menu', label: 'Menu', permission: 'menu.view' },
-  { href: '/dashboard/customers', label: 'Customers', permission: 'customers.view' },
-  { href: '/dashboard/coupons', label: 'Coupons', permission: 'coupons.manage' },
-  { href: '/dashboard/reviews', label: 'Reviews', permission: 'reviews.reply' },
-  { href: '/dashboard/analytics', label: 'Analytics', permission: 'reports.view' },
-  { href: '/dashboard/staff', label: 'Staff', permission: 'staff.manage' },
-  { href: '/dashboard/settings', label: 'Settings', permission: 'settings.manage' },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'reports.view' },
+  { href: '/dashboard/orders', label: 'Orders', icon: ClipboardList, permission: 'orders.view' },
+  { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, permission: 'menu.view' },
+  { href: '/dashboard/customers', label: 'Customers', icon: Users, permission: 'customers.view' },
+  { href: '/dashboard/coupons', label: 'Coupons', icon: Tag, permission: 'coupons.manage' },
+  { href: '/dashboard/reviews', label: 'Reviews', icon: Star, permission: 'reviews.reply' },
+  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, permission: 'reports.view' },
+  { href: '/dashboard/staff', label: 'Staff', icon: UserCog, permission: 'staff.manage' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, permission: 'settings.manage' },
 ];
 
 export function Sidebar() {
@@ -74,6 +87,7 @@ export function Sidebar() {
               className="dash-navlink"
               data-active={active}
             >
+              <item.icon size={16} strokeWidth={2} />
               <span>{item.label}</span>
               {showBadge && <span className="dash-navbadge">{activeCount}</span>}
             </Link>

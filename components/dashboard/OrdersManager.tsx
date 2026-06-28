@@ -11,6 +11,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { ClipboardList } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
@@ -18,6 +19,8 @@ import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { orderService, financialsService } from '@/lib/services';
 import { refundOrder, advanceOrder } from '@/lib/dashboard/actions';
 import { money, clock, dateTime, printHtml } from '@/lib/dashboard/utils';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { Spinner } from '@/components/Spinner';
 import type { Order, OrderDetail } from '@/lib/services/order.service';
 import type { OrderFinancials } from '@/lib/services/financials.service';
 import type { OrderState } from '@/config/constants';
@@ -189,7 +192,15 @@ export function OrdersManager() {
         <div className="dash-panel">
           <div className="dash-panel-body" data-flush="true">
             {filtered.length === 0 ? (
-              <div className="dash-empty">No orders match.</div>
+              <EmptyState
+                icon={ClipboardList}
+                title="No orders match"
+                description={
+                  query || filter !== 'all'
+                    ? 'Try a different search or filter.'
+                    : 'Orders will show up here as customers place them.'
+                }
+              />
             ) : (
               <table className="dash-table">
                 <thead>
@@ -386,6 +397,7 @@ export function OrdersManager() {
                   disabled={busy}
                   onClick={handleCancel}
                 >
+                  {busy && <Spinner />}
                   Cancel order
                 </button>
               )}
@@ -396,6 +408,7 @@ export function OrdersManager() {
                   disabled={busy}
                   onClick={handleRefund}
                 >
+                  {busy && <Spinner />}
                   {busy ? 'Working…' : 'Refund'}
                 </button>
               )}

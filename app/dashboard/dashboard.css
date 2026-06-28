@@ -86,19 +86,24 @@
 }
 .dash-nav { padding: 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .dash-navlink {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; gap: 10px;
   padding: 9px 12px; border-radius: 8px;
   font-size: 14px; font-weight: 600; color: var(--muted);
   text-decoration: none; cursor: pointer;
   transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
 }
+.dash-navlink svg { flex: none; opacity: 0.75; transition: opacity var(--duration-fast) var(--ease); }
+.dash-navlink span { flex: 1; }
 .dash-navlink:hover { background: var(--surface-2); color: var(--ink); }
+.dash-navlink:hover svg { opacity: 1; }
 .dash-navlink[data-active='true'] { background: color-mix(in srgb, var(--brass) 12%, transparent); color: var(--brass); }
+.dash-navlink[data-active='true'] svg { opacity: 1; }
 .dash-navbadge {
   font-size: 11px; font-weight: 800; min-width: 20px; height: 20px;
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0 6px; border-radius: 999px;
   background: var(--brass); color: #fff; font-variant-numeric: tabular-nums;
+  flex: none;
 }
 .dash-side-foot { margin-top: auto; padding: 12px; border-top: 1px solid var(--line); }
 
@@ -157,7 +162,7 @@
 }
 .dash-panel-title { font-size: 14px; font-weight: 800; }
 .dash-panel-body { padding: 16px; }
-.dash-panel-body[data-flush='true'] { padding: 0; }
+.dash-panel-body[data-flush='true'] { padding: 0; overflow-x: auto; }
 
 /* ---- tables ----------------------------------------------------------- */
 .dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -323,6 +328,7 @@
   .dash-side { position: static; height: auto; flex-direction: column; min-width: 0; }
   .dash-nav { flex-direction: row; overflow-x: auto; min-width: 0; }
   .dash-grid[data-cols='2'], .dash-grid[data-cols='3'] { grid-template-columns: 1fr; }
+  .dash-row2 { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dash-pulse,
