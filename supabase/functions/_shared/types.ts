@@ -202,6 +202,57 @@ export interface Database {
           },
         ];
       };
+      staff_invitations: {
+        Row: {
+          id: string;
+          restaurant_id: string;
+          email: string;
+          role: StaffRoleEnum;
+          token: string;
+          status: string;
+          invited_by: string | null;
+          accepted_by: string | null;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          restaurant_id: string;
+          email: string;
+          role: StaffRoleEnum;
+          token?: string;
+          status?: string;
+          invited_by?: string | null;
+          accepted_by?: string | null;
+          expires_at?: string;
+          accepted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['staff_invitations']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'staff_invitations_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'staff_invitations_invited_by_fkey';
+            columns: ['invited_by'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'staff_invitations_accepted_by_fkey';
+            columns: ['accepted_by'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       customers: {
         Row: {
           id: string;

@@ -115,3 +115,27 @@ export async function connectStripe(
   const data = (await response.json()) as { url: string };
   return { ok: true, url: data.url };
 }
+
+/**
+ * Sends (or resends) the email for a pending staff invitation. The
+ * invitation row itself is created directly via staffService.inviteStaff —
+ * this only triggers delivery, since the Resend API key is a server secret
+ * the browser can never hold.
+ */
+export async function sendStaffInvite(invitationId: string): Promise<ActionResult> {
+  const response = await fetch(fnUrl('send-staff-invite'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: await authHeader(),
+    },
+    body: JSON.stringify({ invitation_id: invitationId }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | null;
+    return { ok: false, error: body?.error?.message ?? 'Could not send the invitation email.' };
+  }
+  return { ok: true, error: null };
+}
