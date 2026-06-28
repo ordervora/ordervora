@@ -9,10 +9,14 @@
  * which is the guardrail that keeps the service-role key server-only.
  */
 
-type RawEnv = Record<string, string | undefined>;
-
-function requireVar(source: RawEnv, key: string): string {
-  const value = source[key];
+/**
+ * Takes the already-read value (not a source+key pair) so every call site
+ * keeps a literal `process.env.NEXT_PUBLIC_X` member expression in the
+ * source. Next.js's compiler only inlines that exact literal pattern into
+ * the client bundle — reading via a variable key (`source[key]`) defeats
+ * the inlining and leaves the value undefined in the browser.
+ */
+function requireVar(value: string | undefined, key: string): string {
   if (value === undefined || value === '') {
     throw new Error(
       `Missing required environment variable: ${key}. ` +
@@ -22,8 +26,7 @@ function requireVar(source: RawEnv, key: string): string {
   return value;
 }
 
-function optionalVar(source: RawEnv, key: string): string | undefined {
-  const value = source[key];
+function optionalVar(value: string | undefined): string | undefined {
   return value === '' ? undefined : value;
 }
 
@@ -35,14 +38,19 @@ const isBrowser = typeof window !== 'undefined';
  * inlined into the client bundle by Next.js.
  */
 export const clientEnv = {
-  supabaseUrl: requireVar(process.env, 'NEXT_PUBLIC_SUPABASE_URL'),
-  supabaseAnonKey: requireVar(process.env, 'NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+  supabaseUrl: requireVar(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    'NEXT_PUBLIC_SUPABASE_URL',
+  ),
+  supabaseAnonKey: requireVar(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  ),
   /** Canonical site origin, used for OAuth redirects. */
-  siteUrl: requireVar(process.env, 'NEXT_PUBLIC_SITE_URL'),
+  siteUrl: requireVar(process.env.NEXT_PUBLIC_SITE_URL, 'NEXT_PUBLIC_SITE_URL'),
   /** Stripe publishable key for the Payment Element (safe for the browser). */
   stripePublishableKey: optionalVar(
-    process.env,
-    'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   ),
 } as const;
 
@@ -66,12 +74,15 @@ export const serverEnv = new Proxy(
       }
       switch (prop) {
         case 'supabaseServiceRoleKey':
-          return requireVar(process.env, 'SUPABASE_SERVICE_ROLE_KEY');
+          return requireVar(
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            'SUPABASE_SERVICE_ROLE_KEY',
+          );
         case 'stripeSecretKey':
           // Stripe is introduced in Phase 3; optional during Phase 0.
-          return optionalVar(process.env, 'STRIPE_SECRET_KEY');
+          return optionalVar(process.env.STRIPE_SECRET_KEY);
         case 'stripeWebhookSecret':
-          return optionalVar(process.env, 'STRIPE_WEBHOOK_SECRET');
+          return optionalVar(process.env.STRIPE_WEBHOOK_SECRET);
         default:
           return undefined;
       }
