@@ -132,6 +132,7 @@ export interface Database {
           restaurant_type: RestaurantTypeEnum;
           holiday_hours: Json;
           onboarding_step: string;
+          site_content: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -159,6 +160,7 @@ export interface Database {
           restaurant_type?: RestaurantTypeEnum;
           holiday_hours?: Json;
           onboarding_step?: string;
+          site_content?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

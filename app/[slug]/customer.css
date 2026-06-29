@@ -89,6 +89,12 @@
   line-height: 1.1;
 }
 
+.ov-hero-tagline {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .ov-hero-meta {
   margin-top: 8px;
   display: flex;
@@ -99,6 +105,25 @@
 }
 
 .ov-hero-meta b { color: var(--fresh); font-weight: 700; }
+
+/* ---- about section ----------------------------------------------------- */
+.ov-about {
+  padding: 24px 20px 28px;
+  border-top: 1px solid var(--line);
+}
+
+.ov-about h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ov-about p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
 
 /* fulfillment toggle */
 .ov-fulfillment {

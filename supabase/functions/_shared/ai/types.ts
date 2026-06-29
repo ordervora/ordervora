@@ -27,7 +27,21 @@ export interface MenuExtractionInput {
   sourceText: string;
 }
 
+export interface SiteContent {
+  tagline: string;
+  about_heading: string;
+  about_text: string;
+}
+
+export interface WebsiteContentInput {
+  restaurantName: string;
+  restaurantType: string;
+  /** A handful of real category/item names already on the menu, for grounding. */
+  menuHighlights: string[];
+}
+
 export interface AIProvider {
   readonly name: string;
   extractMenu(input: MenuExtractionInput): Promise<ExtractedMenu>;
+  generateWebsiteContent(input: WebsiteContentInput): Promise<SiteContent>;
 }

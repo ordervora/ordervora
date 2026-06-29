@@ -9,7 +9,15 @@
 import type { AIProvider } from './types.ts';
 import { AnthropicProvider } from './anthropic.ts';
 
-export type { AIProvider, ExtractedMenu, ExtractedMenuCategory, ExtractedMenuItem, MenuExtractionInput } from './types.ts';
+export type {
+  AIProvider,
+  ExtractedMenu,
+  ExtractedMenuCategory,
+  ExtractedMenuItem,
+  MenuExtractionInput,
+  SiteContent,
+  WebsiteContentInput,
+} from './types.ts';
 
 export function getAIProvider(): AIProvider {
   const providerName = Deno.env.get('AI_PROVIDER') ?? 'anthropic';

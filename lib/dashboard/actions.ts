@@ -188,3 +188,42 @@ export async function importMenuFromText(
   const data = (await response.json()) as { menu: ExtractedMenu };
   return { ok: true, menu: data.menu };
 }
+
+export interface SiteContent {
+  tagline: string;
+  about_heading: string;
+  about_text: string;
+}
+
+export interface GenerateWebsiteContentResult {
+  ok: boolean;
+  content?: SiteContent;
+  error?: string;
+}
+
+/**
+ * Drafts a hero tagline + About section for a restaurant's storefront via
+ * the AI provider configured server-side (ai-website-builder). Returns the
+ * proposed copy for the owner to review/edit before saving — this call does
+ * not write to the database.
+ */
+export async function generateWebsiteContent(
+  restaurantId: string,
+): Promise<GenerateWebsiteContentResult> {
+  const response = await fetch(fnUrl('ai-website-builder'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: await authHeader(),
+    },
+    body: JSON.stringify({ restaurant_id: restaurantId }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | null;
+    return { ok: false, error: body?.error?.message ?? 'Could not generate website content.' };
+  }
+  const data = (await response.json()) as { content: SiteContent };
+  return { ok: true, content: data.content };
+}

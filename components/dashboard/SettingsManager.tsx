@@ -11,11 +11,12 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
 import { restaurantService } from '@/lib/services';
-import { connectStripe } from '@/lib/dashboard/actions';
+import { connectStripe, generateWebsiteContent } from '@/lib/dashboard/actions';
 import { clientEnv } from '@/config/env';
 import { SOUND_OPTIONS } from '@/lib/sound';
 import { Spinner } from '@/components/Spinner';
@@ -43,6 +44,18 @@ export function SettingsManager() {
   const [hours, setHours] = useState<Record<string, string>>(
     (restaurant.hours as Record<string, string>) ?? {},
   );
+
+  const site = (restaurant.site_content ?? {}) as Partial<{
+    tagline: string;
+    about_heading: string;
+    about_text: string;
+  }>;
+  const [tagline, setTagline] = useState(site.tagline ?? '');
+  const [aboutHeading, setAboutHeading] = useState(site.about_heading ?? '');
+  const [aboutText, setAboutText] = useState(site.about_text ?? '');
+  const [generatingContent, setGeneratingContent] = useState(false);
+  const [savingContent, setSavingContent] = useState(false);
+  const [contentMessage, setContentMessage] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<RestaurantSettings | null>(null);
   const [deliveryFee, setDeliveryFee] = useState('0');
@@ -91,6 +104,40 @@ export function SettingsManager() {
     );
     setSavingProfile(false);
     setMessage(result.error ? result.error.message : 'Profile saved.');
+  }
+
+  async function handleGenerateContent() {
+    setGeneratingContent(true);
+    setContentMessage(null);
+    const result = await generateWebsiteContent(restaurant.id);
+    setGeneratingContent(false);
+    if (!result.ok || !result.content) {
+      setContentMessage(result.error ?? 'Could not generate website content.');
+      return;
+    }
+    setTagline(result.content.tagline);
+    setAboutHeading(result.content.about_heading);
+    setAboutText(result.content.about_text);
+    setContentMessage('Draft generated — review and save below.');
+  }
+
+  async function saveContent() {
+    setSavingContent(true);
+    setContentMessage(null);
+    const client = getBrowserClient();
+    const result = await restaurantService.updateRestaurant(
+      client,
+      restaurant.id,
+      {
+        site_content: {
+          tagline: tagline.trim(),
+          about_heading: aboutHeading.trim(),
+          about_text: aboutText.trim(),
+        },
+      },
+    );
+    setSavingContent(false);
+    setContentMessage(result.error ? result.error.message : 'Website content saved.');
   }
 
   async function saveConfig() {
@@ -215,6 +262,65 @@ export function SettingsManager() {
               >
                 {savingProfile && <Spinner />}
                 {savingProfile ? 'Saving…' : 'Save profile'}
+              </button>
+            </div>
+          </div>
+
+          {/* Website content */}
+          <div className="dash-panel">
+            <div className="dash-panel-head">
+              <span className="dash-panel-title">Website content</span>
+            </div>
+            <div className="dash-panel-body">
+              {contentMessage && (
+                <p className="dash-kv-label" style={{ fontSize: 13, marginBottom: 8 }}>
+                  {contentMessage}
+                </p>
+              )}
+              <button
+                className="dash-btn"
+                disabled={generatingContent}
+                onClick={handleGenerateContent}
+                style={{ marginBottom: 12 }}
+              >
+                {generatingContent ? <Spinner /> : <Sparkles size={14} />}
+                {generatingContent ? 'Generating…' : 'Generate with AI'}
+              </button>
+              <div className="dash-field">
+                <label>Hero tagline</label>
+                <input
+                  className="dash-input"
+                  value={tagline}
+                  placeholder="A short line under your restaurant name"
+                  onChange={(e) => setTagline(e.target.value)}
+                />
+              </div>
+              <div className="dash-field">
+                <label>About heading</label>
+                <input
+                  className="dash-input"
+                  value={aboutHeading}
+                  placeholder="Our story"
+                  onChange={(e) => setAboutHeading(e.target.value)}
+                />
+              </div>
+              <div className="dash-field">
+                <label>About text</label>
+                <textarea
+                  className="dash-textarea"
+                  value={aboutText}
+                  placeholder="A couple of sentences introducing your restaurant to first-time customers."
+                  onChange={(e) => setAboutText(e.target.value)}
+                />
+              </div>
+              <button
+                className="dash-btn"
+                data-variant="primary"
+                disabled={savingContent}
+                onClick={saveContent}
+              >
+                {savingContent && <Spinner />}
+                {savingContent ? 'Saving…' : 'Save website content'}
               </button>
             </div>
           </div>

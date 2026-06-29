@@ -97,6 +97,7 @@ export async function updateRestaurant(
       | 'restaurant_type'
       | 'holiday_hours'
       | 'onboarding_step'
+      | 'site_content'
     >
   >,
 ): Promise<ServiceResult<Restaurant>> {
