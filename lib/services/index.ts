@@ -22,6 +22,7 @@ export * as couponService from './coupon.service';
 export * as reviewService from './review.service';
 export * as reportsService from './reports.service';
 export * as staffService from './staff.service';
+export * as aiImportService from './ai-import.service';
 
 export type {
   Client,

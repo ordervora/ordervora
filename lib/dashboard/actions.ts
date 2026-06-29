@@ -139,3 +139,52 @@ export async function sendStaffInvite(invitationId: string): Promise<ActionResul
   }
   return { ok: true, error: null };
 }
+
+export interface ExtractedMenuItem {
+  name: string;
+  description: string | null;
+  price: number;
+}
+
+export interface ExtractedMenuCategory {
+  name: string;
+  items: ExtractedMenuItem[];
+}
+
+export interface ExtractedMenu {
+  restaurant_name: string | null;
+  categories: ExtractedMenuCategory[];
+}
+
+export interface ImportMenuResult {
+  ok: boolean;
+  menu?: ExtractedMenu;
+  error?: string;
+}
+
+/**
+ * Extracts structured menu data from raw text via the AI provider configured
+ * server-side (ai-menu-import). Returns the proposed menu for the owner to
+ * review/edit before applying — this call does not write to the database.
+ */
+export async function importMenuFromText(
+  restaurantId: string,
+  sourceText: string,
+): Promise<ImportMenuResult> {
+  const response = await fetch(fnUrl('ai-menu-import'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: await authHeader(),
+    },
+    body: JSON.stringify({ restaurant_id: restaurantId, source_text: sourceText }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | null;
+    return { ok: false, error: body?.error?.message ?? 'Could not import the menu.' };
+  }
+  const data = (await response.json()) as { menu: ExtractedMenu };
+  return { ok: true, menu: data.menu };
+}
