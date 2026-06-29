@@ -11,11 +11,12 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, Sparkles, Trash2 } from 'lucide-react';
 
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/dashboard/context';
-import { menuService } from '@/lib/services';
+import { menuService, aiImportService } from '@/lib/services';
+import { importMenuFromText, type ExtractedMenu } from '@/lib/dashboard/actions';
 import { money } from '@/lib/dashboard/utils';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { SkeletonTable } from '@/components/dashboard/Skeleton';
@@ -43,6 +44,13 @@ export function MenuManager() {
   const [edit, setEdit] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedMenu, setImportedMenu] = useState<ExtractedMenu | null>(null);
+  const [applying, setApplying] = useState(false);
 
   async function load() {
     const client = getBrowserClient();
@@ -102,6 +110,90 @@ export function MenuManager() {
     await load();
   }
 
+  function openImport() {
+    setImportError(null);
+    setImportText('');
+    setImportedMenu(null);
+    setImportOpen(true);
+  }
+
+  function closeImport() {
+    setImportOpen(false);
+    setImportedMenu(null);
+  }
+
+  async function runExtraction() {
+    const text = importText.trim();
+    if (!text) {
+      setImportError('Paste your menu text first.');
+      return;
+    }
+    setImportLoading(true);
+    setImportError(null);
+    const result = await importMenuFromText(restaurant.id, text);
+    setImportLoading(false);
+    if (!result.ok || !result.menu) {
+      setImportError(result.error ?? 'Could not import the menu.');
+      return;
+    }
+    setImportedMenu(result.menu);
+  }
+
+  function removeImportedCategory(categoryIndex: number) {
+    if (!importedMenu) return;
+    setImportedMenu({
+      ...importedMenu,
+      categories: importedMenu.categories.filter((_, i) => i !== categoryIndex),
+    });
+  }
+
+  function removeImportedItem(categoryIndex: number, itemIndex: number) {
+    if (!importedMenu) return;
+    const categories = importedMenu.categories.map((category, i) =>
+      i === categoryIndex
+        ? { ...category, items: category.items.filter((_, j) => j !== itemIndex) }
+        : category,
+    );
+    setImportedMenu({ ...importedMenu, categories });
+  }
+
+  function updateImportedItem(
+    categoryIndex: number,
+    itemIndex: number,
+    patch: Partial<{ name: string; description: string; price: number }>,
+  ) {
+    if (!importedMenu) return;
+    const categories = importedMenu.categories.map((category, i) => {
+      if (i !== categoryIndex) return category;
+      return {
+        ...category,
+        items: category.items.map((item, j) =>
+          j === itemIndex ? { ...item, ...patch } : item,
+        ),
+      };
+    });
+    setImportedMenu({ ...importedMenu, categories });
+  }
+
+  async function applyImportedMenu() {
+    if (!importedMenu) return;
+    setApplying(true);
+    setImportError(null);
+    const client = getBrowserClient();
+    const result = await aiImportService.applyExtractedMenu(
+      client,
+      restaurant.id,
+      importedMenu.categories,
+    );
+    setApplying(false);
+    if (result.error) {
+      setImportError(result.error.message);
+      return;
+    }
+    closeImport();
+    await load();
+  }
+
   const allModifierGroups = menu
     .flatMap((c) => c.products)
     .flatMap((p) => p.modifiers);
@@ -119,6 +211,10 @@ export function MenuManager() {
             {menu.length} categories
           </div>
         </div>
+        <button className="dash-btn" data-variant="primary" onClick={openImport}>
+          <Sparkles size={14} style={{ marginRight: 6, verticalAlign: '-2px' }} />
+          Import menu with AI
+        </button>
       </header>
 
       <div className="dash-body">
@@ -323,6 +419,166 @@ export function MenuManager() {
                 {saving && <Spinner />}
                 {saving ? 'Saving…' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importOpen && (
+        <div
+          className="dash-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !importLoading && !applying) closeImport();
+          }}
+        >
+          <div className="dash-modal" style={{ maxWidth: 640 }}>
+            <div className="dash-modal-head">
+              <span className="dash-modal-title">Import menu with AI</span>
+              <button className="dash-x" onClick={closeImport}>
+                ×
+              </button>
+            </div>
+            <div className="dash-modal-body">
+              {!importedMenu ? (
+                <>
+                  <div className="dash-field">
+                    <label>Paste your menu text</label>
+                    <textarea
+                      className="dash-textarea"
+                      style={{ minHeight: 220 }}
+                      placeholder="Paste menu text copied from your website, PDF, or document…"
+                      value={importText}
+                      onChange={(e) => setImportText(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  {importError && <div className="dash-error">{importError}</div>}
+                </>
+              ) : (
+                <>
+                  <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 0 }}>
+                    Review the extracted menu below. Remove anything that&apos;s
+                    wrong, then apply it to add these categories and items to
+                    your live menu.
+                  </p>
+                  {importedMenu.categories.length === 0 ? (
+                    <EmptyState
+                      icon={Sparkles}
+                      title="Nothing extracted"
+                      description="The AI didn't find any menu items in that text."
+                    />
+                  ) : (
+                    <div className="dash-list">
+                      {importedMenu.categories.map((category, ci) => (
+                        <div key={ci} style={{ marginBottom: 16 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span className="dash-strong">{category.name}</span>
+                            <button
+                              className="dash-btn"
+                              data-size="sm"
+                              onClick={() => removeImportedCategory(ci)}
+                              title="Remove category"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                          {category.items.map((item, ii) => (
+                            <div
+                              key={ii}
+                              className="dash-row2"
+                              style={{ marginTop: 8, alignItems: 'flex-start' }}
+                            >
+                              <div className="dash-field">
+                                <input
+                                  className="dash-input"
+                                  value={item.name}
+                                  onChange={(e) =>
+                                    updateImportedItem(ci, ii, { name: e.target.value })
+                                  }
+                                />
+                                <input
+                                  className="dash-input"
+                                  style={{ marginTop: 6 }}
+                                  value={item.description ?? ''}
+                                  placeholder="Description"
+                                  onChange={(e) =>
+                                    updateImportedItem(ci, ii, {
+                                      description: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: 6,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <input
+                                  className="dash-input"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  style={{ width: 90 }}
+                                  value={item.price}
+                                  onChange={(e) =>
+                                    updateImportedItem(ci, ii, {
+                                      price: Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <button
+                                  className="dash-btn"
+                                  data-size="sm"
+                                  onClick={() => removeImportedItem(ci, ii)}
+                                  title="Remove item"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="dash-divider" style={{ margin: '12px 0' }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {importError && <div className="dash-error">{importError}</div>}
+                </>
+              )}
+            </div>
+            <div className="dash-modal-foot">
+              <button className="dash-btn" onClick={closeImport}>
+                Cancel
+              </button>
+              {!importedMenu ? (
+                <button
+                  className="dash-btn"
+                  data-variant="primary"
+                  disabled={importLoading}
+                  onClick={() => void runExtraction()}
+                >
+                  {importLoading && <Spinner />}
+                  {importLoading ? 'Extracting…' : 'Extract menu'}
+                </button>
+              ) : (
+                <button
+                  className="dash-btn"
+                  data-variant="primary"
+                  disabled={applying || importedMenu.categories.length === 0}
+                  onClick={() => void applyImportedMenu()}
+                >
+                  {applying && <Spinner />}
+                  {applying ? 'Applying…' : 'Apply to menu'}
+                </button>
+              )}
             </div>
           </div>
         </div>

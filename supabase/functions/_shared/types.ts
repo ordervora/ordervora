@@ -62,6 +62,17 @@ export type NotificationChannelEnum = 'sound' | 'push' | 'sms' | 'email' | 'in_a
 export type AddressLabelEnum = 'home' | 'work' | 'other';
 export type ReviewSourceEnum = 'website' | 'google' | 'app';
 export type EventActorEnum = 'customer' | 'staff' | 'system' | 'payment_webhook';
+export type RestaurantTypeEnum =
+  | 'fast_food'
+  | 'cafe'
+  | 'fine_dining'
+  | 'pizza'
+  | 'coffee'
+  | 'asian'
+  | 'bakery'
+  | 'bar'
+  | 'grocery'
+  | 'other';
 
 export interface Database {
   public: {
@@ -115,7 +126,13 @@ export interface Database {
           tax_rate: number;
           currency: string;
           stripe_account_id: string | null;
+          stripe_charges_enabled: boolean;
+          stripe_details_submitted: boolean;
           is_active: boolean;
+          restaurant_type: RestaurantTypeEnum;
+          holiday_hours: Json;
+          onboarding_step: string;
+          site_content: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -137,7 +154,13 @@ export interface Database {
           tax_rate?: number;
           currency?: string;
           stripe_account_id?: string | null;
+          stripe_charges_enabled?: boolean;
+          stripe_details_submitted?: boolean;
           is_active?: boolean;
+          restaurant_type?: RestaurantTypeEnum;
+          holiday_hours?: Json;
+          onboarding_step?: string;
+          site_content?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +199,57 @@ export interface Database {
           {
             foreignKeyName: 'restaurant_staff_user_id_fkey';
             columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      staff_invitations: {
+        Row: {
+          id: string;
+          restaurant_id: string;
+          email: string;
+          role: StaffRoleEnum;
+          token: string;
+          status: string;
+          invited_by: string | null;
+          accepted_by: string | null;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          restaurant_id: string;
+          email: string;
+          role: StaffRoleEnum;
+          token?: string;
+          status?: string;
+          invited_by?: string | null;
+          accepted_by?: string | null;
+          expires_at?: string;
+          accepted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['staff_invitations']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'staff_invitations_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'staff_invitations_invited_by_fkey';
+            columns: ['invited_by'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'staff_invitations_accepted_by_fkey';
+            columns: ['accepted_by'];
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
@@ -971,6 +1045,10 @@ export interface Database {
           notification_config: Json;
           security_config: Json;
           loyalty_config: Json;
+          fulfillment_config: Json;
+          tip_config: Json;
+          kitchen_config: Json;
+          policies_config: Json;
           updated_at: string;
         };
         Insert: {
@@ -980,6 +1058,10 @@ export interface Database {
           notification_config?: Json;
           security_config?: Json;
           loyalty_config?: Json;
+          fulfillment_config?: Json;
+          tip_config?: Json;
+          kitchen_config?: Json;
+          policies_config?: Json;
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['restaurant_settings']['Insert']>;

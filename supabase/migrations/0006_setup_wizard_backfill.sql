@@ -1,0 +1,11 @@
+-- Module A follow-up: mark pre-existing restaurants as onboarded.
+--
+-- 0005_setup_wizard.sql added `onboarding_step` with `DEFAULT 'profile'`, which
+-- Postgres backfills onto every existing row, not just future inserts. Without
+-- this fix, every restaurant created before the wizard shipped would get
+-- redirected into it on next dashboard visit — these restaurants already have
+-- staff, menus, and orders; they don't need (and shouldn't be forced through)
+-- first-run setup. One-time backfill: anything that exists right now predates
+-- the wizard, so mark it done. Future restaurants still get the 'profile'
+-- column default from 0005 and go through setup normally.
+UPDATE restaurants SET onboarding_step = 'done' WHERE onboarding_step = 'profile';

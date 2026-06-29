@@ -149,7 +149,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Resolve the restaurant's Stripe connected account + currency.
   const { data: restaurant, error: restaurantError } = await service
     .from('restaurants')
-    .select('stripe_account_id, currency, is_active')
+    .select('stripe_account_id, stripe_charges_enabled, currency, is_active')
     .eq('id', body.cart.restaurantId)
     .single();
 
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!restaurant.is_active) {
     return errorResponse('This restaurant is not accepting orders.', 409);
   }
-  if (!restaurant.stripe_account_id) {
+  if (!restaurant.stripe_account_id || !restaurant.stripe_charges_enabled) {
     return errorResponse(
       'This restaurant has not finished payment setup.',
       409,

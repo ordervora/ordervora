@@ -51,6 +51,10 @@ export default async function DashboardLayout({
   const result = await restaurantService.getRestaurantById(client, selectedId);
   if (result.error || !result.data) redirect('/');
 
+  if (result.data.onboarding_step !== 'done') {
+    redirect(`${ROUTES.onboardingSetup}?restaurant=${selectedId}`);
+  }
+
   const role = roleAt(ctx, selectedId) ?? 'owner';
 
   return (

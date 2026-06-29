@@ -94,6 +94,10 @@ export async function updateRestaurant(
       | 'timezone'
       | 'hours'
       | 'tax_rate'
+      | 'restaurant_type'
+      | 'holiday_hours'
+      | 'onboarding_step'
+      | 'site_content'
     >
   >,
 ): Promise<ServiceResult<Restaurant>> {
@@ -155,6 +159,10 @@ export async function updateRestaurantSettings(
       | 'notification_config'
       | 'security_config'
       | 'loyalty_config'
+      | 'fulfillment_config'
+      | 'tip_config'
+      | 'kitchen_config'
+      | 'policies_config'
     >
   >,
 ): Promise<ServiceResult<RestaurantSettings>> {

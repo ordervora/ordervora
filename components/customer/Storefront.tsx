@@ -51,6 +51,11 @@ export function Storefront({ restaurant, menu }: StorefrontProps) {
   );
 
   const today = hoursToday(restaurant);
+  const site = (restaurant.site_content ?? {}) as Partial<{
+    tagline: string;
+    about_heading: string;
+    about_text: string;
+  }>;
 
   function scrollToCategory(categoryId: string) {
     setActiveCategory(categoryId);
@@ -71,6 +76,7 @@ export function Storefront({ restaurant, menu }: StorefrontProps) {
           />
         )}
         <h1>{restaurant.name}</h1>
+        {site.tagline && <p className="ov-hero-tagline">{site.tagline}</p>}
         <div className="ov-hero-meta">
           {restaurant.address && <span>{restaurant.address}</span>}
           {today && (
@@ -183,6 +189,13 @@ export function Storefront({ restaurant, menu }: StorefrontProps) {
           />
         )}
       </main>
+
+      {site.about_text && (
+        <section className="ov-about">
+          <h2>{site.about_heading || 'About'}</h2>
+          <p>{site.about_text}</p>
+        </section>
+      )}
 
       {activeProduct && (
         <ProductModal
