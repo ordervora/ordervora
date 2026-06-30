@@ -5,6 +5,7 @@ export {
   type Unsubscribe,
   type RealtimeChange,
   type ChangeEvent,
+  type SubscriptionStatus,
   subscribeToTable,
   channelName,
 } from './_shared';

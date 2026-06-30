@@ -18,9 +18,24 @@ import { useDashboard } from '@/lib/dashboard/context';
 import { restaurantService } from '@/lib/services';
 import { connectStripe, generateWebsiteContent } from '@/lib/dashboard/actions';
 import { clientEnv } from '@/config/env';
-import { SOUND_OPTIONS } from '@/lib/sound';
+import {
+  SOUND_OPTIONS,
+  DEFAULT_EVENT_SOUNDS,
+  playSound,
+  unlockAudio,
+  type SoundId,
+  type SoundEventType,
+} from '@/lib/sound';
 import { Spinner } from '@/components/Spinner';
 import type { RestaurantSettings } from '@/lib/services/restaurant.service';
+
+const EVENT_LABELS: Record<SoundEventType, string> = {
+  new_order: 'New Order',
+  priority_order: 'Priority Order',
+  ready: 'Order Ready',
+  cancelled: 'Cancelled',
+  driver_assigned: 'Driver Assigned',
+};
 
 const DAYS = [
   'monday',
@@ -56,10 +71,15 @@ export function SettingsManager() {
   const [generatingContent, setGeneratingContent] = useState(false);
   const [savingContent, setSavingContent] = useState(false);
   const [contentMessage, setContentMessage] = useState<string | null>(null);
+  const [aiNotConfigured, setAiNotConfigured] = useState(false);
 
   const [settings, setSettings] = useState<RestaurantSettings | null>(null);
   const [deliveryFee, setDeliveryFee] = useState('0');
-  const [soundId, setSoundId] = useState('chime');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(80);
+  const [eventSounds, setEventSounds] = useState<Record<SoundEventType, SoundId>>(
+    { ...DEFAULT_EVENT_SOUNDS },
+  );
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -78,8 +98,14 @@ export function SettingsManager() {
           delivery_fee?: number;
         };
         setDeliveryFee(String(notif.delivery_fee ?? 0));
-        const sound = (result.data.sound_config ?? {}) as { sound_id?: string };
-        setSoundId(sound.sound_id ?? 'chime');
+        const sound = (result.data.sound_config ?? {}) as {
+          enabled?: boolean;
+          volume?: number;
+          event_sounds?: Partial<Record<SoundEventType, SoundId>>;
+        };
+        setSoundEnabled(sound.enabled !== false);
+        setSoundVolume(Math.round((sound.volume ?? 0.8) * 100));
+        setEventSounds({ ...DEFAULT_EVENT_SOUNDS, ...sound.event_sounds });
       });
   }, [restaurant.id]);
 
@@ -109,10 +135,12 @@ export function SettingsManager() {
   async function handleGenerateContent() {
     setGeneratingContent(true);
     setContentMessage(null);
+    setAiNotConfigured(false);
     const result = await generateWebsiteContent(restaurant.id);
     setGeneratingContent(false);
     if (!result.ok || !result.content) {
-      setContentMessage(result.error ?? 'Could not generate website content.');
+      if (result.aiNotConfigured) setAiNotConfigured(true);
+      setContentMessage(result.aiNotConfigured ? null : (result.error ?? 'Could not generate website content.'));
       return;
     }
     setTagline(result.content.tagline);
@@ -156,7 +184,11 @@ export function SettingsManager() {
           ...notif,
           delivery_fee: Number(deliveryFee) || 0,
         },
-        sound_config: { sound_id: soundId, volume: 1, muted: false },
+        sound_config: {
+          enabled: soundEnabled,
+          volume: soundVolume / 100,
+          event_sounds: eventSounds,
+        },
       },
     );
     setSavingConfig(false);
@@ -272,6 +304,17 @@ export function SettingsManager() {
               <span className="dash-panel-title">Website content</span>
             </div>
             <div className="dash-panel-body">
+              {aiNotConfigured && (
+                <div
+                  className="dash-error"
+                  style={{ marginBottom: 12, fontSize: 13, lineHeight: 1.55 }}
+                >
+                  <strong>AI features need setup:</strong> Add your{' '}
+                  <code>ANTHROPIC_API_KEY</code> to Supabase Edge Function secrets
+                  (Supabase Dashboard → Settings → Edge Functions → Secrets) to enable
+                  AI Menu Import and AI Website Builder.
+                </div>
+              )}
               {contentMessage && (
                 <p className="dash-kv-label" style={{ fontSize: 13, marginBottom: 8 }}>
                   {contentMessage}
@@ -378,35 +421,88 @@ export function SettingsManager() {
           </div>
 
           {/* Sound + notifications */}
-          <div className="dash-panel">
+          <div className="dash-panel" style={{ gridColumn: '1 / -1' }}>
             <div className="dash-panel-head">
               <span className="dash-panel-title">
-                Notifications &amp; KDS sound
+                Notifications &amp; alert sounds
               </span>
             </div>
             <div className="dash-panel-body">
-              <div className="dash-field">
-                <label>Default KDS alert sound</label>
-                <select
-                  className="dash-select"
-                  value={soundId}
-                  onChange={(e) => setSoundId(e.target.value)}
-                >
-                  {SOUND_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label} — {option.description}
-                    </option>
-                  ))}
-                </select>
+              <div className="dash-row2" style={{ marginBottom: 16 }}>
+                <div className="dash-field">
+                  <label>Sounds</label>
+                  <button
+                    type="button"
+                    className="dash-btn"
+                    data-variant={soundEnabled ? 'primary' : undefined}
+                    onClick={() => setSoundEnabled((v) => !v)}
+                  >
+                    {soundEnabled ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+                <div className="dash-field">
+                  <label>Volume — {soundVolume}%</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={soundVolume}
+                    onChange={(e) => setSoundVolume(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: 'var(--dash-accent, #2563eb)' }}
+                  />
+                </div>
               </div>
+
+              <p className="dash-kv-label" style={{ fontSize: 13, marginBottom: 12 }}>
+                Choose which sound plays for each event. Click Test to preview.
+              </p>
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                {(Object.keys(EVENT_LABELS) as SoundEventType[]).map((event) => (
+                  <div key={event} className="dash-row2" style={{ alignItems: 'flex-end', gap: 8 }}>
+                    <div className="dash-field" style={{ flex: 1, marginBottom: 0 }}>
+                      <label>{EVENT_LABELS[event]}</label>
+                      <select
+                        className="dash-select"
+                        value={eventSounds[event]}
+                        onChange={(e) =>
+                          setEventSounds((prev) => ({
+                            ...prev,
+                            [event]: e.target.value as SoundId,
+                          }))
+                        }
+                      >
+                        {SOUND_OPTIONS.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label} — {option.description}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className="dash-btn"
+                      style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                      onClick={async () => {
+                        await unlockAudio();
+                        playSound(eventSounds[event], soundVolume / 100);
+                      }}
+                    >
+                      Test
+                    </button>
+                  </div>
+                ))}
+              </div>
+
               <button
                 className="dash-btn"
                 data-variant="primary"
                 disabled={savingConfig}
                 onClick={saveConfig}
+                style={{ marginTop: 16 }}
               >
                 {savingConfig && <Spinner />}
-                {savingConfig ? 'Saving…' : 'Save settings'}
+                {savingConfig ? 'Saving…' : 'Save notification settings'}
               </button>
             </div>
           </div>

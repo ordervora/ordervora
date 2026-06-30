@@ -18,7 +18,7 @@ import {
 } from '../_shared/http.ts';
 import { userClient, serviceClient, getUserId } from '../_shared/supabase.ts';
 import { isManager, writeAudit } from '../_shared/auth.ts';
-import { getAIProvider } from '../_shared/ai/index.ts';
+import { getAIProvider, AiNotConfiguredError } from '../_shared/ai/index.ts';
 
 const MAX_MENU_HIGHLIGHTS = 12;
 
@@ -83,6 +83,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       menuHighlights: (products ?? []).map((p) => p.name),
     });
   } catch (error) {
+    if (error instanceof AiNotConfiguredError) {
+      return errorResponse(error.message, 503, 'ai_not_configured');
+    }
     const message =
       error instanceof Error
         ? error.message

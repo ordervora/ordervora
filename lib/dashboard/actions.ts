@@ -160,6 +160,7 @@ export interface ImportMenuResult {
   ok: boolean;
   menu?: ExtractedMenu;
   error?: string;
+  aiNotConfigured?: boolean;
 }
 
 /**
@@ -181,9 +182,15 @@ export async function importMenuFromText(
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
+      | { error?: { message?: string; code?: string } }
       | null;
-    return { ok: false, error: body?.error?.message ?? 'Could not import the menu.' };
+    const isNotConfigured =
+      response.status === 503 || body?.error?.code === 'ai_not_configured';
+    return {
+      ok: false,
+      error: body?.error?.message ?? 'Could not import the menu.',
+      aiNotConfigured: isNotConfigured,
+    };
   }
   const data = (await response.json()) as { menu: ExtractedMenu };
   return { ok: true, menu: data.menu };
@@ -199,6 +206,7 @@ export interface GenerateWebsiteContentResult {
   ok: boolean;
   content?: SiteContent;
   error?: string;
+  aiNotConfigured?: boolean;
 }
 
 /**
@@ -220,9 +228,15 @@ export async function generateWebsiteContent(
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
+      | { error?: { message?: string; code?: string } }
       | null;
-    return { ok: false, error: body?.error?.message ?? 'Could not generate website content.' };
+    const isNotConfigured =
+      response.status === 503 || body?.error?.code === 'ai_not_configured';
+    return {
+      ok: false,
+      error: body?.error?.message ?? 'Could not generate website content.',
+      aiNotConfigured: isNotConfigured,
+    };
   }
   const data = (await response.json()) as { content: SiteContent };
   return { ok: true, content: data.content };

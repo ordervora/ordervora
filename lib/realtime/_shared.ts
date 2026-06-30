@@ -24,6 +24,13 @@ export type ChangeEvent = 'INSERT' | 'UPDATE' | 'DELETE';
 /** A function that tears down a subscription. */
 export type Unsubscribe = () => void;
 
+/** WebSocket / channel lifecycle states reported by Supabase Realtime. */
+export type SubscriptionStatus =
+  | 'SUBSCRIBED'
+  | 'TIMED_OUT'
+  | 'CLOSED'
+  | 'CHANNEL_ERROR';
+
 /**
  * A normalized realtime change, narrowed to the row shape `T`. `newRow` is null
  * on DELETE; `oldRow` is null on INSERT.
@@ -58,6 +65,10 @@ let channelSequence = 0;
  * normalized changes to `onChange`. Returns an unsubscribe function.
  *
  * `filter` uses PostgREST filter syntax, e.g. `restaurant_id=eq.<uuid>`.
+ *
+ * The optional `onStatus` callback fires on every lifecycle transition
+ * (SUBSCRIBED, TIMED_OUT, CLOSED, CHANNEL_ERROR) so callers can surface
+ * connection state and trigger refetches after a reconnect.
  */
 export function subscribeToTable<T extends Record<string, unknown>>(
   client: Client,
@@ -66,10 +77,11 @@ export function subscribeToTable<T extends Record<string, unknown>>(
     table: string;
     filter?: string;
     event?: ChangeEvent | '*';
+    onStatus?: (status: SubscriptionStatus) => void;
   },
   onChange: (change: RealtimeChange<T>) => void,
 ): Unsubscribe {
-  const { name, table, filter, event = '*' } = options;
+  const { name, table, filter, event = '*', onStatus } = options;
 
   const channel = client
     .channel(`${name}:${++channelSequence}`)
@@ -95,7 +107,9 @@ export function subscribeToTable<T extends Record<string, unknown>>(
         onChange({ event: changeEvent, newRow, oldRow });
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      onStatus?.(status as SubscriptionStatus);
+    });
 
   return () => {
     void client.removeChannel(channel);

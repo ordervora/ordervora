@@ -3,14 +3,15 @@
 /**
  * Authentication server actions.
  *
- * Two sign-in paths, both backed by Supabase Auth:
- *   - `signInWithEmail` : sends a magic-link / OTP to the address.
- *   - `signInWithOAuth` : starts an OAuth flow (e.g. Google) and returns the
- *                         provider URL for the client to navigate to.
+ * Sign-in paths:
+ *   - `signInWithPassword`  : email + password (primary for restaurant owners).
+ *   - `signInWithEmail`     : magic-link / OTP fallback (still supported).
+ *   - `signInWithOAuth`     : OAuth providers (e.g. Google).
  *
- * Both build redirect URLs that route through `/auth/callback`, which completes
- * the session exchange. A `redirect` path is threaded through so the user lands
- * back where they started after authenticating.
+ * Account management:
+ *   - `signUpWithPassword`  : creates account with email + password.
+ *   - `resetPassword`       : sends a password-reset email.
+ *   - `updatePassword`      : sets a new password for the authenticated user.
  */
 
 import type { Provider } from '@supabase/supabase-js';
@@ -31,17 +32,17 @@ function buildCallbackUrl(redirectTo: string): string {
   return url.toString();
 }
 
-/**
- * Maps a Supabase Auth error to a message safe to show the user. Logs the raw
- * error server-side (visible in Vercel function logs) since GoTrue's own
- * messages are often either too technical or, for rate limits, accurate
- * enough to show directly.
- */
 function describeAuthError(error: { message: string; code?: string; status?: number }): string {
   console.error('[auth]', error.status, error.code, error.message);
 
   if (error.code === 'over_email_send_rate_limit' || error.status === 429) {
-    return 'Too many sign-in attempts. Wait a minute and try again.';
+    return 'Too many attempts. Wait a minute and try again.';
+  }
+  if (error.code === 'invalid_credentials') {
+    return 'Incorrect email or password.';
+  }
+  if (error.code === 'email_not_confirmed') {
+    return 'Please verify your email before signing in.';
   }
   if (error.code === 'signup_disabled') {
     return 'New sign-ups are currently disabled.';
@@ -49,18 +50,127 @@ function describeAuthError(error: { message: string; code?: string; status?: num
   if (error.code === 'email_address_invalid') {
     return 'That email address looks invalid.';
   }
+  if (error.code === 'user_already_exists') {
+    return 'An account with this email already exists. Sign in instead.';
+  }
   if (
     error.message.toLowerCase().includes('redirect') ||
     error.code === 'validation_failed'
   ) {
     return 'Sign-in is misconfigured for this domain. Contact support.';
   }
-  // Temporary: surface the raw GoTrue error since we have no log access from this
-  // environment right now. Revert to a generic message once the cause is fixed.
-  return `Could not send the sign-in link. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message} (project: ${clientEnv.supabaseUrl})`;
+  return error.message || 'Something went wrong. Please try again.';
 }
 
-/** Sends a one-time sign-in link to the given email address. */
+/** Signs in with email and password. */
+export async function signInWithPassword(
+  email: string,
+  password: string,
+): Promise<AuthActionResult> {
+  const trimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { ok: false, message: 'Enter a valid email address.' };
+  }
+  if (!password) {
+    return { ok: false, message: 'Enter your password.' };
+  }
+
+  try {
+    const supabase = await getServerClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: trimmed,
+      password,
+    });
+    if (error) return { ok: false, message: describeAuthError(error) };
+    return { ok: true, message: 'Signed in.' };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('[auth] signInWithPassword threw', detail);
+    return { ok: false, message: 'Sign-in failed. Please try again.' };
+  }
+}
+
+/**
+ * Creates a new account with email and password. Sends a confirmation email.
+ * On success, the user still needs to verify their email before signing in
+ * (unless email confirmations are disabled in Supabase settings).
+ */
+export async function signUpWithPassword(
+  email: string,
+  password: string,
+): Promise<AuthActionResult> {
+  const trimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { ok: false, message: 'Enter a valid email address.' };
+  }
+  if (password.length < 8) {
+    return { ok: false, message: 'Password must be at least 8 characters.' };
+  }
+
+  try {
+    const supabase = await getServerClient();
+    const { error } = await supabase.auth.signUp({
+      email: trimmed,
+      password,
+      options: {
+        emailRedirectTo: buildCallbackUrl(ROUTES.dashboard),
+      },
+    });
+    if (error) return { ok: false, message: describeAuthError(error) };
+    return {
+      ok: true,
+      message: 'Account created — check your email to confirm it, then sign in.',
+    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('[auth] signUpWithPassword threw', detail);
+    return { ok: false, message: 'Sign-up failed. Please try again.' };
+  }
+}
+
+/** Sends a password-reset email. */
+export async function resetPassword(email: string): Promise<AuthActionResult> {
+  const trimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { ok: false, message: 'Enter a valid email address.' };
+  }
+
+  try {
+    const supabase = await getServerClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: buildCallbackUrl('/auth/update-password'),
+    });
+    if (error) return { ok: false, message: describeAuthError(error) };
+    return {
+      ok: true,
+      message: 'Check your email for a password reset link.',
+    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('[auth] resetPassword threw', detail);
+    return { ok: false, message: 'Could not send reset email. Please try again.' };
+  }
+}
+
+/** Sets a new password for the currently authenticated user. */
+export async function updatePassword(password: string): Promise<AuthActionResult> {
+  if (password.length < 8) {
+    return { ok: false, message: 'Password must be at least 8 characters.' };
+  }
+
+  try {
+    const supabase = await getServerClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { ok: false, message: describeAuthError(error) };
+    return { ok: true, message: 'Password updated successfully.' };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('[auth] updatePassword threw', detail);
+    return { ok: false, message: 'Could not update password. Please try again.' };
+  }
+}
+
+/** Sends a one-time sign-in link (magic link / OTP) to the given email. */
 export async function signInWithEmail(
   email: string,
   redirectTo: string = '/',
@@ -72,39 +182,19 @@ export async function signInWithEmail(
 
   try {
     const supabase = await getServerClient();
-    const { data, error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithOtp({
       email: trimmed,
       options: {
         emailRedirectTo: buildCallbackUrl(redirectTo),
         shouldCreateUser: true,
       },
     });
-
-    // Full dump of the raw GoTrue response, visible in Vercel function logs.
-    // `data` is `{ user: null, session: null }` on success for OTP, so this
-    // line mostly proves whether the request reached Supabase at all and
-    // which project it hit.
-    console.error('[auth] signInWithOtp raw response', {
-      supabaseUrl: clientEnv.supabaseUrl,
-      data,
-      error: error ? { message: error.message, status: error.status, code: error.code } : null,
-    });
-
-    if (error) {
-      return { ok: false, message: describeAuthError(error) };
-    }
-
+    if (error) return { ok: false, message: describeAuthError(error) };
     return { ok: true, message: 'Check your email for a sign-in link.' };
   } catch (err) {
-    // Anything thrown before/instead of a returned AuthError (missing env var,
-    // network failure reaching Supabase, etc.) — surface it instead of letting
-    // Next.js redact it behind a generic digest message.
     const detail = err instanceof Error ? err.message : String(err);
     console.error('[auth] signInWithEmail threw', detail);
-    return {
-      ok: false,
-      message: `Sign-in request failed before reaching Supabase: ${detail} (project: ${clientEnv.supabaseUrl})`,
-    };
+    return { ok: false, message: 'Could not send sign-in link. Please try again.' };
   }
 }
 
@@ -125,19 +215,9 @@ export async function signInWithOAuth(
       },
     });
 
-    console.error('[auth] signInWithOAuth raw response', {
-      supabaseUrl: clientEnv.supabaseUrl,
-      provider,
-      hasUrl: Boolean(data?.url),
-      error: error ? { message: error.message, status: error.status, code: error.code } : null,
-    });
-
     if (error || !data?.url) {
       if (error) {
-        return {
-          ok: false,
-          message: `Could not start sign-in. [${error.status ?? 'n/a'}/${error.code ?? 'no-code'}] ${error.message} (project: ${clientEnv.supabaseUrl})`,
-        };
+        return { ok: false, message: describeAuthError(error) };
       }
       return { ok: false, message: 'Could not start sign-in. Try again.' };
     }
@@ -146,9 +226,6 @@ export async function signInWithOAuth(
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error('[auth] signInWithOAuth threw', detail);
-    return {
-      ok: false,
-      message: `Sign-in request failed before reaching Supabase: ${detail} (project: ${clientEnv.supabaseUrl})`,
-    };
+    return { ok: false, message: 'Sign-in failed. Please try again.' };
   }
 }

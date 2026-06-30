@@ -31,7 +31,7 @@ import type { Restaurant, RestaurantSettings } from '@/lib/services/restaurant.s
 import { Spinner } from '@/components/Spinner';
 import { ROUTES, RESTAURANT_TYPES, SETUP_STEPS } from '@/config/constants';
 import type { SetupStep } from '@/config/constants';
-import { SOUND_OPTIONS } from '@/lib/sound';
+import { SOUND_OPTIONS, DEFAULT_EVENT_SOUNDS, type SoundId } from '@/lib/sound';
 import type { Json } from '@/types/database.types';
 
 function toJson<T>(value: T): Json {
@@ -162,8 +162,9 @@ export function SetupWizard({ restaurant, settings }: SetupWizardProps) {
 
   // Step 4 — kitchen
   const [kitchen, setKitchen] = useState(asKitchen(settings?.kitchen_config));
-  const [soundId, setSoundId] = useState(
-    ((settings?.sound_config as { sound_id?: string } | null)?.sound_id) ?? 'chime',
+  const storedSound = (settings?.sound_config as { event_sounds?: Record<string, string>; sound_id?: string } | null);
+  const [soundId, setSoundId] = useState<SoundId>(
+    (storedSound?.event_sounds?.new_order ?? storedSound?.sound_id ?? 'premium_chime') as SoundId,
   );
 
   // Step 5 — policies
@@ -234,7 +235,13 @@ export function SetupWizard({ restaurant, settings }: SetupWizardProps) {
     } else if (step === 'kitchen') {
       settingsPatch = {
         kitchen_config: toJson(kitchen),
-        sound_config: toJson({ sound_id: soundId, volume: 1, muted: false }),
+        sound_config: toJson({
+          enabled: true,
+          volume: 1,
+          event_sounds: Object.fromEntries(
+            Object.keys(DEFAULT_EVENT_SOUNDS).map((k) => [k, soundId]),
+          ),
+        }),
       };
     } else if (step === 'policies') {
       settingsPatch = { policies_config: toJson(policies) };
@@ -517,7 +524,7 @@ export function SetupWizard({ restaurant, settings }: SetupWizardProps) {
               </div>
               <div className="wiz-field">
                 <label>Kitchen display alert sound</label>
-                <select className="auth-input" value={soundId} onChange={(e) => setSoundId(e.target.value)}>
+                <select className="auth-input" value={soundId} onChange={(e) => setSoundId(e.target.value as SoundId)}>
                   {SOUND_OPTIONS.map((option) => (
                     <option key={option.id} value={option.id}>
                       {option.label} — {option.description}
