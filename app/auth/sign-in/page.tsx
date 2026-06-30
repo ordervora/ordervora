@@ -55,6 +55,15 @@ function SignInForm() {
         router.push(redirectTo);
         router.refresh();
       }
+
+      // If signup auto-confirmed (email confirmation disabled in Supabase),
+      // redirect to dashboard immediately instead of waiting for email.
+      if (result.ok && mode === 'signup' && result.message.includes('Signing you in')) {
+        setTimeout(() => {
+          router.push(redirectTo);
+          router.refresh();
+        }, 800);
+      }
     });
   }
 
