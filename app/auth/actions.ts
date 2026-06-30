@@ -109,7 +109,7 @@ export async function signUpWithPassword(
 
   try {
     const supabase = await getServerClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: trimmed,
       password,
       options: {
@@ -117,6 +117,15 @@ export async function signUpWithPassword(
       },
     });
     if (error) return { ok: false, message: describeAuthError(error) };
+
+    // If email confirmations are disabled in Supabase, the session is created
+    // immediately and the user is already signed in — signal the client to redirect.
+    const autoConfirmed =
+      data.user?.confirmed_at != null || data.session != null;
+    if (autoConfirmed) {
+      return { ok: true, message: 'Account created. Signing you in…' };
+    }
+
     return {
       ok: true,
       message: 'Account created — check your email to confirm it, then sign in.',
