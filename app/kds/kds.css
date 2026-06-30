@@ -523,3 +523,20 @@
   .kds-pill[data-live='true']::before { animation: none; }
   .kds-ticket[data-new='true'] { animation: none; }
 }
+/* Emergency KDS mobile overlay fix */
+.kds-overlay {
+  overflow-y: auto !important;
+  place-items: start center !important;
+}
+
+.kds-panel {
+  max-height: calc(100dvh - 48px) !important;
+  overflow-y: auto !important;
+}
+
+.kds-sound-list {
+  max-height: min(52dvh, 420px) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  padding-right: 2px !important;
+}
