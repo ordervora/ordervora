@@ -133,7 +133,11 @@ export function MenuManager() {
     const result = await importMenuFromText(restaurant.id, text);
     setImportLoading(false);
     if (!result.ok || !result.menu) {
-      setImportError(result.error ?? 'Could not import the menu.');
+      setImportError(
+        result.aiNotConfigured
+          ? 'AI features need setup: add ANTHROPIC_API_KEY to Supabase Edge Function secrets (Supabase Dashboard → Settings → Edge Functions → Secrets).'
+          : (result.error ?? 'Could not import the menu.'),
+      );
       return;
     }
     setImportedMenu(result.menu);

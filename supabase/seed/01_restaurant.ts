@@ -104,7 +104,7 @@ export async function seedRestaurant(
       .from('restaurant_settings')
       .upsert({
         restaurant_id: restaurant.id,
-        sound_config: { sound_id: 'chime', volume: 1, muted: false },
+        sound_config: { enabled: true, volume: 1, event_sounds: { new_order: 'restaurant_bell', priority_order: 'alarm', ready: 'pickup_ready', cancelled: 'soft_bell', driver_assigned: 'digital' } },
         printer_config: { enabled: false, printer_name: null },
         notification_config: NOTIFICATION_CONFIG,
         security_config: { require_pin_for_refunds: true },

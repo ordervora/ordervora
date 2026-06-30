@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import type { SoundId } from '@/lib/sound';
+import { SOUND_OPTIONS, type SoundId } from '@/lib/sound';
 
 const STORAGE_KEY = 'ordervora.kds.prefs';
 
@@ -22,10 +22,12 @@ export interface KdsPreferences {
 }
 
 const DEFAULT_PREFS: KdsPreferences = {
-  soundId: 'chime',
+  soundId: 'premium_chime',
   volume: 1,
   muted: false,
 };
+
+const VALID_SOUND_IDS = new Set<string>(SOUND_OPTIONS.map((o) => o.id));
 
 function readStored(): KdsPreferences {
   if (typeof window === 'undefined') return DEFAULT_PREFS;
@@ -33,8 +35,12 @@ function readStored(): KdsPreferences {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw) as Partial<KdsPreferences>;
+    const storedId = parsed.soundId;
     return {
-      soundId: parsed.soundId ?? DEFAULT_PREFS.soundId,
+      soundId:
+        storedId && VALID_SOUND_IDS.has(storedId)
+          ? (storedId as SoundId)
+          : DEFAULT_PREFS.soundId,
       volume:
         typeof parsed.volume === 'number'
           ? Math.max(0, Math.min(1, parsed.volume))

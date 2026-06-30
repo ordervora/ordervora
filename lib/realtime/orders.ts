@@ -12,6 +12,7 @@ import {
   type Client,
   type Unsubscribe,
   type RealtimeChange,
+  type SubscriptionStatus,
   subscribeToTable,
   channelName,
 } from './_shared';
@@ -23,11 +24,15 @@ export type OrderEventRow = Tables<'order_events'>;
 /**
  * Subscribes to all order changes (INSERT/UPDATE/DELETE) for a restaurant.
  * New paid orders arrive as INSERTs; state advances arrive as UPDATEs.
+ *
+ * Pass `onStatus` to track WebSocket lifecycle (SUBSCRIBED / CLOSED /
+ * CHANNEL_ERROR / TIMED_OUT) and trigger refetches after reconnects.
  */
 export function subscribeToRestaurantOrders(
   client: Client,
   restaurantId: string,
   onChange: (change: RealtimeChange<OrderRow>) => void,
+  onStatus?: (status: SubscriptionStatus) => void,
 ): Unsubscribe {
   return subscribeToTable<OrderRow>(
     client,
@@ -35,6 +40,7 @@ export function subscribeToRestaurantOrders(
       name: channelName(['orders', restaurantId]),
       table: 'orders',
       filter: `restaurant_id=eq.${restaurantId}`,
+      onStatus,
     },
     onChange,
   );

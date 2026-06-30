@@ -66,7 +66,7 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
     [shiftStarted, prefs.muted, prefs.soundId, prefs.volume],
   );
 
-  const { tickets, loading, error, newTicketIds, refetch } = useKdsBoard(
+  const { tickets, loading, error, connected, newTicketIds, refetch } = useKdsBoard(
     restaurantId,
     handleNewTicket,
   );
@@ -114,10 +114,20 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
         <div className="kds-bar-actions">
           <span
             className="kds-pill"
-            data-live={error ? 'false' : 'true'}
-            title={error ? 'Reconnecting' : 'Live'}
+            data-live={connected === true ? 'true' : 'false'}
+            title={
+              connected === null
+                ? 'Connecting…'
+                : connected
+                  ? 'Live'
+                  : 'Reconnecting'
+            }
           >
-            {error ? 'Reconnecting' : 'Live'}
+            {connected === null
+              ? 'Connecting…'
+              : connected
+                ? 'Live'
+                : 'Reconnecting'}
           </span>
           <button
             type="button"
@@ -144,9 +154,12 @@ export function KdsBoard({ restaurantId, restaurantName }: KdsBoardProps) {
         </div>
       </header>
 
-      {error && (
+      {(connected === false || error) && (
         <div className="kds-banner">
-          Live updates interrupted — {error}. Tap Refresh to reconcile the board.
+          {error
+            ? `Live updates interrupted — ${error}. `
+            : 'Connection lost — reconnecting automatically. '}
+          Tap Refresh to reconcile the board.
         </div>
       )}
       {actions.error && <div className="kds-banner">{actions.error}</div>}

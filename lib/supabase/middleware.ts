@@ -59,11 +59,14 @@ export async function updateSession(request: NextRequest): Promise<MiddlewareSes
     },
   );
 
-  // getUser() revalidates the token with the auth server (more trustworthy than
-  // getSession(), which only reads the cookie).
+  // getSession() reads the JWT from the cookie without a network round-trip.
+  // Middleware runs on every request; a live getUser() round-trip per request
+  // adds latency that can cause 522 timeouts under load. Routing decisions here
+  // only need to know whether a session exists — fine-grained trust verification
+  // via getUser() happens in server components and layouts where it matters.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  return { response, user };
+  return { response, user: session?.user ?? null };
 }

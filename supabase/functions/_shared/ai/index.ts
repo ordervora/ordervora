@@ -19,15 +19,25 @@ export type {
   WebsiteContentInput,
 } from './types.ts';
 
+export class AiNotConfiguredError extends Error {
+  constructor() {
+    super(
+      'AI features are not configured. ' +
+      'Set the ANTHROPIC_API_KEY environment variable in your Supabase project ' +
+      '(Dashboard → Settings → Edge Functions → Secrets) to enable AI Menu Import ' +
+      'and AI Website Builder.',
+    );
+    this.name = 'AiNotConfiguredError';
+  }
+}
+
 export function getAIProvider(): AIProvider {
   const providerName = Deno.env.get('AI_PROVIDER') ?? 'anthropic';
 
   switch (providerName) {
     case 'anthropic': {
       const apiKey = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
-      if (!apiKey) {
-        throw new Error('Missing ANTHROPIC_API_KEY environment variable.');
-      }
+      if (!apiKey) throw new AiNotConfiguredError();
       return new AnthropicProvider(apiKey);
     }
     case 'openai':
